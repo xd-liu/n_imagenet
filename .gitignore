@@ -1,4 +1,7 @@
-# Byte-compiled / optimized / DLL files
+# models
+*real_cnn_model/experiments/*
+*.log
+# #Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class

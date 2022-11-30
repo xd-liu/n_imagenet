@@ -1,6 +1,7 @@
 import numpy as np
 from os import listdir
 import os
+import tqdm
 
 def convert(input_fn, output_fn):
     content = np.fromfile(input_fn, dtype=np.uint8).astype(np.int32)
@@ -15,13 +16,13 @@ def convert(input_fn, output_fn):
 
     event = {'event_data': res}
     
-    np.save(output_fn, event)
+    np.savez(output_fn, event)
 
 if __name__ == "__main__":
     # label mapping file
-    root_dir = 'Caltech101'
+    root_dir = '/home/xudong99/scratch/cy6cvx3ryv-1/Caltech101'
     labels = sorted(listdir(root_dir))
-    with open("mapping.txt", "w") as f:
+    with open("/home/xudong99/scratch/cy6cvx3ryv-1/Caltech101-NIN/mapping.txt", "w") as f:
         for i, label in enumerate(labels):
             f.write(str(i) + " " + label)
             if i != len(labels) - 1:
@@ -29,7 +30,7 @@ if __name__ == "__main__":
 
     # event folder structure
     # root dir
-    new_root_dir = 'Caltech101-NIN'
+    new_root_dir = '/home/xudong99/scratch/cy6cvx3ryv-1/Caltech101-NIN'
     if not os.path.exists(new_root_dir):
         os.makedirs(new_root_dir)
     
@@ -44,7 +45,7 @@ if __name__ == "__main__":
     new_event_fnames = []
     for label in labels:
         fns = sorted(listdir(os.path.join(root_dir, label)))
-        new_fns = [fn.split('.')[0] + '.npy' for fn in fns]
+        new_fns = [fn.split('.')[0] + '.npz' for fn in fns]
 
         abs_fns = [os.path.join(root_dir, label, fn) for fn in fns]
         new_abs_fns = [os.path.join(new_root_dir, label, fn) for fn in new_fns]
@@ -53,16 +54,16 @@ if __name__ == "__main__":
         new_event_fnames += new_abs_fns
 
     # convert from .bin to .npy
-        for input_fn, out_fn in zip(event_fnames, new_event_fnames):
-            convert(input_fn, out_fn)
+    for input_fn, out_fn in tqdm.tqdm(zip(event_fnames, new_event_fnames)):
+        convert(input_fn, out_fn)
     
     # split train and val
     choices = np.random.choice([0, 1], size=(len(new_event_fnames),), p=[.15, .85])
-    train_list = new_event_fnames[choices==1]
-    val_list = new_event_fnames[choices==0]
+    train_list = np.array(new_event_fnames)[choices==1]
+    val_list = np.array(new_event_fnames)[choices==0]
 
-    train_fn = "train_list.txt"
-    val_fn = "val_list.txt"
+    train_fn = "/home/xudong99/scratch/cy6cvx3ryv-1/train_list.txt"
+    val_fn = "/home/xudong99/scratch/cy6cvx3ryv-1/val_list.txt"
     with open(train_fn, "w") as f:
         for i, fn in enumerate(train_list):
             f.write(fn)

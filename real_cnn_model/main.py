@@ -6,6 +6,7 @@ from real_cnn_model.models.model_container import CNNContainer
 from real_cnn_model.train.trainer import CNNTrainer
 import configparser
 from collections import namedtuple 
+# import wandb
 
 
 def main():
@@ -25,11 +26,11 @@ def main():
     print(open(args.config, 'r').read())
 
     # Confirm config to prevent errors
-    if not args.background:
-        choice = input("If config is correct, press y: ", )
-        if choice != 'y':
-            print('Exit!')
-            exit()
+    # if not args.background:
+    #     choice = input("If config is correct, press y: ", )
+    #     if choice != 'y':
+    #         print('Exit!')
+    #         exit()
 
     if args.override is not None:
         equality_split = args.override.split('=')
@@ -80,6 +81,10 @@ def main():
 
     # Display model
     print(model_container.models['model'])
+
+    # wandb
+    # wandb.init(project="train_DiST_Caltech")
+    # wandb.config = cfg_dict
 
     if args.clean:
         print("Cleaning experiments!")

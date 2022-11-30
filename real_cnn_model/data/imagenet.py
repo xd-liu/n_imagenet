@@ -7,8 +7,8 @@ import random
 import torch.nn.functional as F
 
 
-SENSOR_H = 480
-SENSOR_W = 640
+SENSOR_H = 180
+SENSOR_W = 240
 IMAGE_H = 224
 IMAGE_W = 224
 EXP_TAU = 0.3
@@ -23,9 +23,9 @@ DISC_ALPHA = 3.0
 
 def load_event(event_path, cfg):
     # Returns time-shifted numpy array event from event_path
-    event = np.load(event_path)
+    event = np.load(event_path, allow_pickle=True)
     if getattr(cfg, 'compressed', True):
-        event = event['event_data']
+        event = event['arr_0'].item()['event_data']
         event = np.vstack([event['x'], event['y'], event['t'], event['p'].astype(np.uint8)]).T
     else:
         event = np.vstack([event['x_pos'], event['y_pos'], event['timestamp'], event['polarity'].astype(np.uint8)]).T

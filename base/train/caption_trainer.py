@@ -10,6 +10,7 @@ from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 import pathlib
 from base.utils.tracker import SequenceTracker
+# import wandb
 
 
 class CaptionTrainer(MiniBatchTrainer):
@@ -128,6 +129,8 @@ class CaptionTrainer(MiniBatchTrainer):
         self.tracker.total_train_loss.update(loss)
         self.tracker.total_top_5.update(top5)
 
+        # wandb.log({"loss": loss})
+
         print_dict = {'Iter': self.tracker.batch_idx, 'training loss': loss, 'top 5 training acc': top5,
         'infer time': self.tracker.infer_time, 'load time': self.tracker.load_time}
         write_dict = {'training_loss': loss, 'top 5 train accuracy': top5, 'load_time': self.tracker.load_time}
@@ -167,6 +170,8 @@ class CaptionTrainer(MiniBatchTrainer):
 
         avg_top_5 = self.tracker.total_top_5.get_avg()
         print_dict = {"Epoch": self.tracker.epoch, "top 5 accuracy": avg_top_5, "bleu 4": bleu4}
+        
+        # wandb.log({"val_acc_top5": avg_top_5})
         self.print_state(print_dict)
 
         return bleu4
