@@ -1,6 +1,7 @@
 import torch
 from torch_scatter import scatter_max, scatter_min
 from torch.utils.data import Dataset
+import torch.nn as nn
 from pathlib import Path
 import numpy as np
 import random
@@ -18,8 +19,80 @@ CLIP_COUNT = False
 CLIP_COUNT_RATE = 0.99
 DISC_ALPHA = 3.0
 
-# Parsing Modules
+# ValueLayer for EST
 
+class ValueLayer(nn.Module):
+    def __init__(self, mlp_layers, activation=nn.ReLU(), num_channels=9):
+        assert mlp_layers[-1] == 1, "Last layer of the mlp must have 1 input channel."
+        assert mlp_layers[0] == 1, "First layer of the mlp must have 1 output channel"
+
+        nn.Module.__init__(self)
+        self.mlp = nn.ModuleList()
+        self.activation = activation
+
+        # create mlp
+        in_channels = 1
+        for out_channels in mlp_layers[1:]:
+            self.mlp.append(nn.Linear(in_channels, out_channels))
+            in_channels = out_channels
+
+        # init with trilinear kernel
+        path = join(dirname(__file__), "quantization_layer_init", "trilinear_init.pth")
+        if isfile(path):
+            state_dict = torch.load(path)
+            self.load_state_dict(state_dict)
+        else:
+            self.init_kernel(num_channels)
+
+    def forward(self, x):
+        # create sample of batchsize 1 and input channels 1
+        x = x[None,...,None]
+
+        # apply mlp convolution
+        for i in range(len(self.mlp[:-1])):
+            x = self.activation(self.mlp[i](x))
+
+        x = self.mlp[-1](x)
+        x = x.squeeze()
+
+        return x
+
+    def init_kernel(self, num_channels):
+        ts = torch.zeros((1, 2000))
+        optim = torch.optim.Adam(self.parameters(), lr=1e-2)
+
+        torch.manual_seed(1)
+
+        for _ in tqdm.tqdm(range(1000)):  # converges in a reasonable time
+            optim.zero_grad()
+
+            ts.uniform_(-1, 1)
+
+            # gt
+            gt_values = self.trilinear_kernel(ts, num_channels)
+
+            # pred
+            values = self.forward(ts)
+
+            # optimize
+            loss = (values - gt_values).pow(2).sum()
+
+            loss.backward()
+            optim.step()
+
+
+    def trilinear_kernel(self, ts, num_channels):
+        gt_values = torch.zeros_like(ts)
+
+        gt_values[ts > 0] = (1 - (num_channels-1) * ts)[ts > 0]
+        gt_values[ts < 0] = ((num_channels-1) * ts + 1)[ts < 0]
+
+        gt_values[ts < -1.0 / (num_channels-1)] = 0
+        gt_values[ts > 1.0 / (num_channels-1)] = 0
+
+        return gt_values
+
+# Parsing Modules
 
 def load_event(event_path, cfg):
     # Returns time-shifted numpy array event from event_path
@@ -144,6 +217,51 @@ def parse_event(event_path, cfg):
     return event
 
 # Aggregation Modules
+
+
+# Reimplement EST
+def est_agg(event_tensor,  augment=None, **kwargs):
+    # Accumulate events to create a (2 * C) * H * W image
+
+    # Augment data
+    if augment is not None:
+        event_tensor = augment(event_tensor)
+    
+    H = kwargs.get('height', IMAGE_H)
+    W = kwargs.get('width', IMAGE_W)
+    C = kwargs.get('channel_num', 9)
+
+    mlp_layers = kwargs.get('value-layer_mlp', [1, 100, 100, 1])
+
+    value_layer = ValueLayer(mlp_layers,
+                            activation=nn.LeakyReLU(negative_slope=0.1),
+                            num_channels=C)
+
+    num_voxels = 2 * C * H * W
+    vox = events[0].new_full([num_voxels,], fill_value=0)
+
+    start_time = event_tensor[0, 2]
+    time_length = event_tensor[-1, 2] - event_tensor[0, 2]
+    event_tensor[: 2] = (event_tensor[: 2] - start_time) / time_length
+
+    x, y, t, p = event_tensor.t()
+
+    idx_before_bins = x \
+                    + W * y \
+                    + 0 \
+                    + W * H * C * (p + 1) / 2
+    
+    for i_bin in range(C):
+        values = t * value_layer.forward(t - i_bin / (C - 1))
+
+        # draw in voxel grid
+        idx = idx_before_bins + W * H * i_bin
+        vox.put_(idx.long(), values, accumulate=True)
+    
+    vox = vox.view(2, C, H, W)
+    vox = torch.cat([vox[0, ...], vox[1, ...]], 0)
+
+    return vox
 
 
 def reshape_then_acc(event_tensor, augment=None, **kwargs):
