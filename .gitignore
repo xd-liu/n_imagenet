@@ -1,6 +1,9 @@
 # wandb
 */wand/*
 
+# misc
+*.core
+
 # models
 *real_cnn_model/experiments/*
 *.log
@@ -8,6 +11,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.DS_Store
 
 # C extensions
 *.so

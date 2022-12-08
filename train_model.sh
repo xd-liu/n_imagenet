@@ -17,20 +17,23 @@ export PYTHONPATH="$PATH_TO_REPOSITORY":$PYTHONPATH
 cd "$PATH_TO_REPOSITORY"/real_cnn_model
 
 # write to new file
+# SBATCH --nodes=1
 echo "#!/bin/bash
-#SBATCH --nodes=1
-#SBATCH --gpus-per-node=p100:2
-#SBATCH --ntasks-per-node=32
+#SBATCH --gres=gpu:t4:1
+#SBATCH --cpus-per-task=32
 #SBATCH --mem=127000M
 #SBATCH --time=12:00:00
 #SBATCH --account=def-gigor
 #SBATCH --output=$LOG_FILE
 #SBATCH --error=$LOG_FILE
+#SBATCH --mail-user=liuxd1215@gmail.com
+#SBATCH --mail-type=ALL
 echo \$SLURM_JOB_ID >> $LOG_FILE                      # log the job id
 echo \$SLURM_JOB_PARTITION >> $LOG_FILE               # log the job partition
 python --version >> $LOG_FILE                        # log Python version
 gcc --version >> $LOG_FILE                           # log GCC version
 nvcc --version >> $LOG_FILE                          # log NVCC version
+nvidia-smi >> $LOG_FILE                          # log NVCC version
 python $PY_FILE $PY_ARGS >> $LOG_FILE                # the script above, with its standard output appended log file
 " >> ./run-${JOB_NAME}.slrm
 

@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import random
 import torch.nn.functional as F
+from os.path import join, dirname, isfile
 
 
 SENSOR_H = 180
@@ -39,19 +40,25 @@ class ValueLayer(nn.Module):
         # init with trilinear kernel
         path = join(dirname(__file__), "quantization_layer_init", "trilinear_init.pth")
         if isfile(path):
+            print("loading ValueLayer Successfully!")
             state_dict = torch.load(path)
             self.load_state_dict(state_dict)
         else:
+            print("loading ValueLayer Failed!")
             self.init_kernel(num_channels)
+        
+        self.mlp = self.mlp.float()
 
     def forward(self, x):
+        x = x.float()
         # create sample of batchsize 1 and input channels 1
         x = x[None,...,None]
-
+        # print("VL test 1")
         # apply mlp convolution
         for i in range(len(self.mlp[:-1])):
             x = self.activation(self.mlp[i](x))
-
+        # print("VL test 2")
+        
         x = self.mlp[-1](x)
         x = x.squeeze()
 
@@ -99,7 +106,7 @@ def load_event(event_path, cfg):
     event = np.load(event_path, allow_pickle=True)
     if getattr(cfg, 'compressed', True):
         event = event['arr_0'].item()['event_data']
-        event = np.vstack([event['x'], event['y'], event['t'], event['p'].astype(np.uint8)]).T
+        event = np.vstack([event['x'], event['y'], event['t'], event['p'] + 2]).T
     else:
         event = np.vstack([event['x_pos'], event['y_pos'], event['timestamp'], event['polarity'].astype(np.uint8)]).T
 
@@ -111,6 +118,10 @@ def load_event(event_path, cfg):
     # Account for zero polarity
     if event[:, 3].min() >= -0.5:
         event[:, 3][event[:, 3] <= 0.5] = -1
+    
+    print("Load Event:", event[:, 0].max(), event[:, 0].min(), \
+            event[:, 1].max(), event[:, 1].min(), \
+            event[:, 3].max(), event[:, 3].min())s
 
     return event
 
@@ -220,32 +231,36 @@ def parse_event(event_path, cfg):
 
 
 # Reimplement EST
-def est_agg(event_tensor,  augment=None, **kwargs):
+def est_aggregation(event_tensor,  augment=None, **kwargs):
     # Accumulate events to create a (2 * C) * H * W image
 
     # Augment data
     if augment is not None:
         event_tensor = augment(event_tensor)
     
+    print("event_tensot shape:", event_tensor.shape)
+    
     H = kwargs.get('height', IMAGE_H)
     W = kwargs.get('width', IMAGE_W)
     C = kwargs.get('channel_num', 9)
 
-    mlp_layers = kwargs.get('value-layer_mlp', [1, 100, 100, 1])
+    mlp_layers = kwargs.get('value-layer_mlp', [1, 30, 30, 1])
 
     value_layer = ValueLayer(mlp_layers,
                             activation=nn.LeakyReLU(negative_slope=0.1),
                             num_channels=C)
 
     num_voxels = 2 * C * H * W
-    vox = events[0].new_full([num_voxels,], fill_value=0)
+    vox = event_tensor[0].new_full([num_voxels,], fill_value=0)
 
     start_time = event_tensor[0, 2]
     time_length = event_tensor[-1, 2] - event_tensor[0, 2]
     event_tensor[: 2] = (event_tensor[: 2] - start_time) / time_length
 
     x, y, t, p = event_tensor.t()
-
+    print("x", x.shape, x.max(), x.min())
+    print(x.max(), y.max(), p.unique())
+    print("p", p.max(), p.min())
     idx_before_bins = x \
                     + W * y \
                     + 0 \
@@ -260,6 +275,7 @@ def est_agg(event_tensor,  augment=None, **kwargs):
     
     vox = vox.view(2, C, H, W)
     vox = torch.cat([vox[0, ...], vox[1, ...]], 0)
+    vox = vox.float()
 
     return vox
 
@@ -1070,6 +1086,8 @@ class ImageNetDataset(Dataset):
             self.loader = reshape_then_acc_intensity
         elif self.loader_type == 'reshape_then_acc_adj_sort':
             self.loader = reshape_then_acc_adj_sort
+        elif self.loader_type == 'est_aggregation':
+            self.loader = est_aggregation
 
     def augment_parser(self, parser):
         def new_parser(event_path):
