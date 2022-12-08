@@ -1,6 +1,10 @@
 # wandb
 */wand/*
 
+# _dev
+*.ipynb
+*.bin
+
 # models
 *real_cnn_model/experiments/*
 *.log
