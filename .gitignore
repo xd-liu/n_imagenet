@@ -3,6 +3,9 @@
 
 # misc
 *.core
+# _dev
+*.ipynb
+*.bin
 
 # models
 *real_cnn_model/experiments/*
