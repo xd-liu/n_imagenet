@@ -81,6 +81,10 @@ def save_to_video(target_path, uni_shape, data_path, fps=30):
     y_max = y.max()
     shape = (int(y_max) + 1, int(x_max) + 1)
 
+    # number of images
+    max_images = 100
+    i = 0
+
     t1, t0 = t0[1:], t0[:-1]
     idx0 = np.searchsorted(data['t'], t0)
     idx1 = np.searchsorted(data['t'], t1)
@@ -107,7 +111,11 @@ def save_to_video(target_path, uni_shape, data_path, fps=30):
 
         # test frame
         img_name = os.path.join(target_path, "frame{}.jpg".format(i0))
-        cv2.imwrite(img_name, frame)
+        if i % 90 == 0 and i < max_images:
+            cv2.imwrite(img_name, frame)
+
+        # number of steps
+        i += 1
 
         writer.writeFrame(frame)
         pbar.update(1)
