@@ -34,12 +34,19 @@ def random_block_mask(frame, mask_ratio=0.5, block_size=16):
     '''
     Args:
         frame (np.ndarray): [H, W, 3], input frame
-        mask_ratio (float): ratio of masked pixels
+        mask_ratio (float): ratio of the masked area
+        block_size (int): size of the block
     Returns:
         frame (np.ndarray): [H, W, 3], output frame
     '''
-    mask = np.random.rand(*frame.shape[:2]) > mask_ratio
-    frame[mask] = 255
+    h, w, _ = frame.shape
+    blocks = (h // block_size, w // block_size)
+
+    mask = np.random.rand(*blocks) < mask_ratio
+    mask = np.repeat(np.repeat(mask, block_size, axis=0), block_size, axis=1)
+
+    grey = np.array([100, 100, 100], dtype="uint8")
+    frame[mask] = grey
 
     return frame
 
@@ -66,7 +73,12 @@ def event_processor(x, y, p, red, blue, output_frame):
     return output_frame
 
 
-def save_to_video(target_path, uni_shape, data_path, fps=30):
+def save_to_video(target_path,
+                  shape,
+                  data_path,
+                  mask=True,
+                  mask_ratio=0.5,
+                  fps=30):
     '''
     Args:
         target_path (str): path to save the video
@@ -89,18 +101,22 @@ def save_to_video(target_path, uni_shape, data_path, fps=30):
     print("length of t0: ", len(t0))
 
     # auto-adjust size of frame
-    x = data['x']
-    y = data['y']
-    x_max = x.max()
-    y_max = y.max()
-    shape = (int(y_max) + 1, int(x_max) + 1)
-    print("shape of frame: ", shape)
+    # x = data['x']
+    # y = data['y']
+    # x_max = x.max()
+    # y_max = y.max()
+    # shape = (int(y_max) + 1, int(x_max) + 1)
+    # print("shape of frame: ", shape)
 
     t1, t0 = t0[1:], t0[:-1]
     idx0 = np.searchsorted(data['t'], t0)
     idx1 = np.searchsorted(data['t'], t1)
 
-    path = os.path.join(target_path, "events.mp4")
+    if mask:
+        path = os.path.join(target_path, "events_masked.mp4")
+    else:
+        path = os.path.join(target_path, "events.mp4")
+
     writer = skvideo.io.FFmpegWriter(path, inputdict={'-framerate': str(fps)})
 
     red = np.array([255, 0, 0], dtype="uint8")
@@ -117,9 +133,16 @@ def save_to_video(target_path, uni_shape, data_path, fps=30):
 
         event_processor(sub_data['x'], sub_data['y'], sub_data['p'], red, blue,
                         frame)
+        
+        if mask:
+            frame = random_block_mask(frame, mask_ratio=mask_ratio)
 
         # test frame
-        img_name = os.path.join(target_path, "frame{}.jpg".format(i0))
+        if mask:
+            img_name = os.path.join(target_path, "frame{}_masked.jpg".format(i0))
+        else:
+            img_name = os.path.join(target_path, "frame{}.jpg".format(i0))
+            
         cv2.imwrite(img_name, frame)
 
         writer.writeFrame(frame)
@@ -133,7 +156,7 @@ def test_event2video():
     # load events
     input_fn = "/home/xudong99/scratch/cy6cvx3ryv-1/Caltech101/butterfly/image_0001.bin"
     # save to video
-    shape = (256, 256)
+    shape = (160, 240)
     save_to_video("./video/", shape, input_fn)
 
 
