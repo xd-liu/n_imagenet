@@ -52,11 +52,11 @@ def event_processor(x, y, p, red, blue, output_frame):
     return output_frame
 
 
-def save_to_video(target_path, shape, data_path, fps=30):
+def save_to_video(target_path, uni_shape, data_path, fps=30):
     '''
     Args:
         target_path (str): path to save the video
-        shape (tuple): (height, width) of the saved video
+        uni_shape (tuple): (height, width) of the saved video
         data (dict): dictionary containing the events:
             - t: [N]
             - x: [N], x coordinate of the event
@@ -69,9 +69,17 @@ def save_to_video(target_path, shape, data_path, fps=30):
     tmin, tmax = data['t'][[0, -1]]
     tmin, tmax = tmin.item(), tmax.item()
     # t here are in unit 1e-6 s
-    t0 = np.arange(tmin, tmax, 1e6 // 100)
+    # t0 = np.arange(tmin, tmax, 1e6 // 100) # 1e-6 s
+    t0 = np.arange(tmin, tmax, 1e3 // fps) # real world time
     # test length of t0
     print("length of t0: ", len(t0))
+
+    # auto-adjust size of frame
+    x = data['x']
+    y = data['y']
+    x_max = x.max()
+    y_max = y.max()
+    shape = (int(y_max) + 1, int(x_max) + 1)
 
     t1, t0 = t0[1:], t0[:-1]
     idx0 = np.searchsorted(data['t'], t0)
@@ -100,7 +108,7 @@ def save_to_video(target_path, shape, data_path, fps=30):
         # test frame
         img_name = os.path.join(target_path, "frame{}.jpg".format(i0))
         cv2.imwrite(img_name, frame)
-        
+
         writer.writeFrame(frame)
         pbar.update(1)
     writer.close()
