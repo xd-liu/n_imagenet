@@ -140,15 +140,6 @@ def save_to_video(target_path,
         if mask:
             frame = random_block_mask(frame, mask_ratio=mask_ratio)
 
-        # test frame
-        if mask:
-            img_name = os.path.join(target_path,
-                                    "frame{}_masked.jpg".format(i0))
-        else:
-            img_name = os.path.join(target_path, "frame{}.jpg".format(i0))
-
-        cv2.imwrite(img_name, frame)
-
         writer.writeFrame(frame)
         pbar.update(1)
     writer.close()
@@ -193,16 +184,18 @@ def test_event2video():
                   mask_ratio=0.9,
                   fps=30,
                   output_name="airplanes")
-    
+
     save_to_video("./video/",
                   shape,
                   butterfly_fn,
-                  mask=False)
+                  mask=False,
+                  output_name="butterfly")
 
     save_to_video("./video/",
                   shape,
                   airplanes_fn,
-                  mask=False)
+                  mask=False,
+                  output_name="airplanes")
 
 
 if __name__ == '__main__':
