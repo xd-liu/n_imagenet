@@ -78,7 +78,8 @@ def save_to_video(target_path,
                   data_path,
                   mask=True,
                   mask_ratio=0.5,
-                  fps=30):
+                  fps=30,
+                  output_name="butterfly"):
     '''
     Args:
         target_path (str): path to save the video
@@ -113,9 +114,11 @@ def save_to_video(target_path,
     idx1 = np.searchsorted(data['t'], t1)
 
     if mask:
-        path = os.path.join(target_path, "events_masked.mp4")
+        path = os.path.join(
+            target_path,
+            output_name + "_" + str(mask_ratio) + "_event_masked.mp4")
     else:
-        path = os.path.join(target_path, "events.mp4")
+        path = os.path.join(target_path, output_name + "_event.mp4")
 
     writer = skvideo.io.FFmpegWriter(path, inputdict={'-framerate': str(fps)})
 
@@ -133,16 +136,17 @@ def save_to_video(target_path,
 
         event_processor(sub_data['x'], sub_data['y'], sub_data['p'], red, blue,
                         frame)
-        
+
         if mask:
             frame = random_block_mask(frame, mask_ratio=mask_ratio)
 
         # test frame
         if mask:
-            img_name = os.path.join(target_path, "frame{}_masked.jpg".format(i0))
+            img_name = os.path.join(target_path,
+                                    "frame{}_masked.jpg".format(i0))
         else:
             img_name = os.path.join(target_path, "frame{}.jpg".format(i0))
-            
+
         cv2.imwrite(img_name, frame)
 
         writer.writeFrame(frame)
@@ -154,10 +158,51 @@ def save_to_video(target_path,
 
 def test_event2video():
     # load events
-    input_fn = "/home/xudong99/scratch/cy6cvx3ryv-1/Caltech101/butterfly/image_0001.bin"
+    butterfly_fn = "/home/xudong99/scratch/cy6cvx3ryv-1/Caltech101/butterfly/image_0001.bin"
+    airplanes_fn = "/home/xudong99/scratch/cy6cvx3ryv-1/Caltech101/airplanes/image_0001.bin"
     # save to video
     shape = (160, 240)
-    save_to_video("./video/", shape, input_fn)
+    save_to_video("./video/",
+                  shape,
+                  butterfly_fn,
+                  mask=True,
+                  mask_ratio=0.5,
+                  fps=30,
+                  output_name="butterfly")
+
+    save_to_video("./video/",
+                  shape,
+                  airplanes_fn,
+                  mask=True,
+                  mask_ratio=0.5,
+                  fps=30,
+                  output_name="airplanes")
+
+    save_to_video("./video/",
+                  shape,
+                  butterfly_fn,
+                  mask=True,
+                  mask_ratio=0.9,
+                  fps=30,
+                  output_name="butterfly")
+
+    save_to_video("./video/",
+                  shape,
+                  airplanes_fn,
+                  mask=True,
+                  mask_ratio=0.9,
+                  fps=30,
+                  output_name="airplanes")
+    
+    save_to_video("./video/",
+                  shape,
+                  butterfly_fn,
+                  mask=False)
+
+    save_to_video("./video/",
+                  shape,
+                  airplanes_fn,
+                  mask=False)
 
 
 if __name__ == '__main__':
