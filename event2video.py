@@ -4,7 +4,7 @@ import skvideo.io
 import tqdm
 
 
-def convert(input_fn):
+def event_format_convert(input_fn):
     '''
     Args:
         input_fn (str): path to the input file
@@ -21,7 +21,7 @@ def convert(input_fn):
     res = {}
     res['x'] = content[0:][::5]
     res['y'] = content[1:][::5]
-    res['p'] = np.right_shift(content[2:][::5], 7) * 2 - 3
+    res['p'] = np.right_shift(content[2:][::5], 7) + 1
     res['t'] = np.left_shift(np.bitwise_and(content[2:][::5], 127), 16)
     res['t'] = res['t'] + np.left_shift(content[3:][::5], 8)
     res['t'] = res['t'] + content[4:][::5]
@@ -51,7 +51,7 @@ def event_processor(x, y, p, red, blue, output_frame):
     return output_frame
 
 
-def save_to_video(target_path, shape, data, fps=30):
+def save_to_video(target_path, shape, data_path, fps=30):
     '''
     Args:
         target_path (str): path to save the video
@@ -64,6 +64,7 @@ def save_to_video(target_path, shape, data, fps=30):
         fps (int): FPS of the saved video
     '''
     # convert each non-overlapping time-window to a frame
+    data = event_format_convert(data_path)
     tmin, tmax = data['t'][[0, -1]]
     tmin, tmax = tmin.item(), tmax.item()
     # t here are in unit 1e-6 s
@@ -92,3 +93,15 @@ def save_to_video(target_path, shape, data, fps=30):
     writer.close()
 
     return path
+
+
+def test_event2video():
+    # load events
+    input_fn = "n_imagenet/00000000.bin"
+    # save to video
+    shape = (256, 256)
+    save_to_video("./video/", shape, input_fn)
+
+
+if __name__ == '__main__':
+    test_event2video()
