@@ -30,6 +30,20 @@ def event_format_convert(input_fn):
     return res
 
 
+def random_block_mask(frame, mask_ratio=0.5, block_size=16):
+    '''
+    Args:
+        frame (np.ndarray): [H, W, 3], input frame
+        mask_ratio (float): ratio of masked pixels
+    Returns:
+        frame (np.ndarray): [H, W, 3], output frame
+    '''
+    mask = np.random.rand(*frame.shape[:2]) > mask_ratio
+    frame[mask] = 255
+
+    return frame
+
+
 def event_processor(x, y, p, red, blue, output_frame):
     '''
     Args:
@@ -69,8 +83,8 @@ def save_to_video(target_path, uni_shape, data_path, fps=30):
     tmin, tmax = data['t'][[0, -1]]
     tmin, tmax = tmin.item(), tmax.item()
     # t here are in unit 1e-6 s
-    # t0 = np.arange(tmin, tmax, 1e6 // 100) # 1e-6 s
-    t0 = np.arange(tmin, tmax, 1e3 // fps) # real world time
+    t0 = np.arange(tmin, tmax, 1e6 // 100)  # 1e-6 s
+    # t0 = np.arange(tmin, tmax, 1e3 // fps) # real world time
     # test length of t0
     print("length of t0: ", len(t0))
 
@@ -80,15 +94,11 @@ def save_to_video(target_path, uni_shape, data_path, fps=30):
     x_max = x.max()
     y_max = y.max()
     shape = (int(y_max) + 1, int(x_max) + 1)
-
-    # number of images
-    max_images = 100
-    i = 0
+    print("shape of frame: ", shape)
 
     t1, t0 = t0[1:], t0[:-1]
     idx0 = np.searchsorted(data['t'], t0)
     idx1 = np.searchsorted(data['t'], t1)
-
 
     path = os.path.join(target_path, "events.mp4")
     writer = skvideo.io.FFmpegWriter(path, inputdict={'-framerate': str(fps)})
@@ -99,23 +109,18 @@ def save_to_video(target_path, uni_shape, data_path, fps=30):
     pbar = tqdm.tqdm(total=len(idx0))
     for i0, i1 in zip(idx0, idx1):
         sub_data = {
-            k: v[i0:i1].astype("int32") # for ndarray
+            k: v[i0:i1].astype("int32")  # for ndarray
             # k: v[i0:i1].cpu().numpy().astype("int32") # for torch tensor
             for k, v in data.items()
         }
         frame = np.full(shape=shape + (3, ), fill_value=255, dtype="uint8")
-        
 
         event_processor(sub_data['x'], sub_data['y'], sub_data['p'], red, blue,
                         frame)
 
         # test frame
         img_name = os.path.join(target_path, "frame{}.jpg".format(i0))
-        if i % 90 == 0 and i < max_images:
-            cv2.imwrite(img_name, frame)
-
-        # number of steps
-        i += 1
+        cv2.imwrite(img_name, frame)
 
         writer.writeFrame(frame)
         pbar.update(1)
