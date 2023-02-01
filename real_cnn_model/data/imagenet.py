@@ -40,7 +40,7 @@ class ValueLayer(nn.Module):
         # init with trilinear kernel
         path = join(dirname(__file__), "quantization_layer_init", "trilinear_init.pth")
         if isfile(path):
-            print("loading ValueLayer Successfully!")
+            # print("loading ValueLayer Successfully!")
             state_dict = torch.load(path)
             self.load_state_dict(state_dict)
         else:
@@ -119,9 +119,9 @@ def load_event(event_path, cfg):
     if event[:, 3].min() >= -0.5:
         event[:, 3][event[:, 3] <= 0.5] = -1
     
-    print("Load Event:", event[:, 0].max(), event[:, 0].min(), \
-            event[:, 1].max(), event[:, 1].min(), \
-            event[:, 3].max(), event[:, 3].min())s
+    # print("Load Event:", event[:, 0].max(), event[:, 0].min(), \
+    #         event[:, 1].max(), event[:, 1].min(), \
+    #         event[:, 3].max(), event[:, 3].min())
 
     return event
 
@@ -209,6 +209,9 @@ def parse_event(event_path, cfg):
     denoise_neglect_polarity = getattr(cfg, 'denoise_neglect_polarity', True)
 
     reshape = getattr(cfg, 'reshape', False)
+    # print("before reshape x", event[:,0].max(), event[:,0].min())
+    # print("before reshape y", event[:,1].max(), event[:,1].min())
+    # print("before reshape t", event[:,3].max(), event[:,3].min())
     if reshape:
         reshape_method = getattr(cfg, 'reshape_method', 'no_sample')
 
@@ -219,11 +222,18 @@ def parse_event(event_path, cfg):
         elif reshape_method == 'unique':
             event = reshape_event_unique(event, SENSOR_H, SENSOR_W, IMAGE_H, IMAGE_W)
 
+    # print("after reshape x", event[:,0].max(), event[:,0].min())
+    # print("after reshape y", event[:,1].max(), event[:,1].min())
+    # print("after reshape t", event[:,3].max(), event[:,3].min())
     # Account for slicing
     slice_events = getattr(cfg, 'slice_events', False)
 
     if slice_events:
         event = slice_event(event, cfg)
+    
+    # print("after slice x", event[:,0].max(), event[:,0].min())
+    # print("after slice y", event[:,1].max(), event[:,1].min())
+    # print("after slice t", event[:,3].max(), event[:,3].min())
 
     return event
 
@@ -237,8 +247,12 @@ def est_aggregation(event_tensor,  augment=None, **kwargs):
     # Augment data
     if augment is not None:
         event_tensor = augment(event_tensor)
+
+    # print("ini x", event_tensor[:,0].max(), event_tensor[:,0].min())
+    # print("ini y", event_tensor[:,1].max(), event_tensor[:,1].min())
+    # print("ini p", event_tensor[:,3].max(), event_tensor[:,3].min())
     
-    print("event_tensot shape:", event_tensor.shape)
+    # print("event_tensot shape:", event_tensor.shape)
     
     H = kwargs.get('height', IMAGE_H)
     W = kwargs.get('width', IMAGE_W)
@@ -255,12 +269,12 @@ def est_aggregation(event_tensor,  augment=None, **kwargs):
 
     start_time = event_tensor[0, 2]
     time_length = event_tensor[-1, 2] - event_tensor[0, 2]
-    event_tensor[: 2] = (event_tensor[: 2] - start_time) / time_length
+    # event_tensor[: 2] = (event_tensor[: 2] - start_time) / time_length
+    x = event_tensor[:,0].long()
+    y = event_tensor[:,1].long()
+    t = (event_tensor[:,2] - start_time) / time_length
+    p = event_tensor[:,3].long()
 
-    x, y, t, p = event_tensor.t()
-    print("x", x.shape, x.max(), x.min())
-    print(x.max(), y.max(), p.unique())
-    print("p", p.max(), p.min())
     idx_before_bins = x \
                     + W * y \
                     + 0 \
