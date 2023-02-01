@@ -73,6 +73,7 @@ def save_to_video(target_path, shape, data_path, fps=30):
     idx0 = np.searchsorted(data['t'], t0)
     idx1 = np.searchsorted(data['t'], t1)
 
+
     path = os.path.join(target_path, "events.mp4")
     writer = skvideo.io.FFmpegWriter(path, inputdict={'-framerate': str(fps)})
 
@@ -82,7 +83,8 @@ def save_to_video(target_path, shape, data_path, fps=30):
     pbar = tqdm.tqdm(total=len(idx0))
     for i0, i1 in zip(idx0, idx1):
         sub_data = {
-            k: v[i0:i1].cpu().numpy().astype("int32")
+            k: v[i0:i1].astype("int32") # for ndarray
+            # k: v[i0:i1].cpu().numpy().astype("int32") # for torch tensor
             for k, v in data.items()
         }
         frame = np.full(shape=shape + (3, ), fill_value=255, dtype="uint8")
