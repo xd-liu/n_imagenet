@@ -97,7 +97,7 @@ def save_to_video(target_path, shape, data_path, fps=30):
 
 def test_event2video():
     # load events
-    input_fn = "n_imagenet/00000000.bin"
+    input_fn = "/home/xudong99/scratch/cy6cvx3ryv-1/Caltech101/accordion/image_0001.bin"
     # save to video
     shape = (256, 256)
     save_to_video("./video/", shape, input_fn)
