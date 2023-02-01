@@ -92,12 +92,15 @@ def save_to_video(target_path, shape, data_path, fps=30):
             for k, v in data.items()
         }
         frame = np.full(shape=shape + (3, ), fill_value=255, dtype="uint8")
-        # test frame
-        img_name = os.path.join(target_path, "frame{}.jpg".format(i0))
-        cv2.imwrite(img_name, frame)
+        
 
         event_processor(sub_data['x'], sub_data['y'], sub_data['p'], red, blue,
                         frame)
+
+        # test frame
+        img_name = os.path.join(target_path, "frame{}.jpg".format(i0))
+        cv2.imwrite(img_name, frame)
+        
         writer.writeFrame(frame)
         pbar.update(1)
     writer.close()
