@@ -429,8 +429,8 @@ def est_aggregation_nop(event_tensor, augment=None, **kwargs):
     t = (event_tensor[:, 2] - start_time) / time_length
 
     # ignore polarity
-    p[p < 0] = 1
     p = event_tensor[:, 3].long()
+    p[p < 0] = 1
 
     idx_before_bins = x \
                     + W * y \
