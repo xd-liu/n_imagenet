@@ -1385,6 +1385,10 @@ class ImageNetDataset(Dataset):
             self.loader = reshape_then_acc_adj_sort
         elif self.loader_type == 'est_aggregation':
             self.loader = est_aggregation
+        elif self.loader_type == 'est_aggregation_nop':
+            self.loader = est_aggregation_nop
+        elif self.loader_type == 'est_aggregation_positive':
+            self.loader = est_aggregation_positive
 
     def augment_parser(self, parser):
 
