@@ -8,7 +8,6 @@ import random
 import torch.nn.functional as F
 from os.path import join, dirname, isfile
 
-
 SENSOR_H = 180
 SENSOR_W = 240
 IMAGE_H = 224
@@ -22,10 +21,14 @@ DISC_ALPHA = 3.0
 
 # ValueLayer for EST
 
+
 class ValueLayer(nn.Module):
+
     def __init__(self, mlp_layers, activation=nn.ReLU(), num_channels=9):
-        assert mlp_layers[-1] == 1, "Last layer of the mlp must have 1 input channel."
-        assert mlp_layers[0] == 1, "First layer of the mlp must have 1 output channel"
+        assert mlp_layers[
+            -1] == 1, "Last layer of the mlp must have 1 input channel."
+        assert mlp_layers[
+            0] == 1, "First layer of the mlp must have 1 output channel"
 
         nn.Module.__init__(self)
         self.mlp = nn.ModuleList()
@@ -38,7 +41,8 @@ class ValueLayer(nn.Module):
             in_channels = out_channels
 
         # init with trilinear kernel
-        path = join(dirname(__file__), "quantization_layer_init", "trilinear_init.pth")
+        path = join(dirname(__file__), "quantization_layer_init",
+                    "trilinear_init.pth")
         if isfile(path):
             # print("loading ValueLayer Successfully!")
             state_dict = torch.load(path)
@@ -46,19 +50,19 @@ class ValueLayer(nn.Module):
         else:
             print("loading ValueLayer Failed!")
             self.init_kernel(num_channels)
-        
+
         self.mlp = self.mlp.float()
 
     def forward(self, x):
         x = x.float()
         # create sample of batchsize 1 and input channels 1
-        x = x[None,...,None]
+        x = x[None, ..., None]
         # print("VL test 1")
         # apply mlp convolution
         for i in range(len(self.mlp[:-1])):
             x = self.activation(self.mlp[i](x))
         # print("VL test 2")
-        
+
         x = self.mlp[-1](x)
         x = x.squeeze()
 
@@ -87,28 +91,33 @@ class ValueLayer(nn.Module):
             loss.backward()
             optim.step()
 
-
     def trilinear_kernel(self, ts, num_channels):
         gt_values = torch.zeros_like(ts)
 
-        gt_values[ts > 0] = (1 - (num_channels-1) * ts)[ts > 0]
-        gt_values[ts < 0] = ((num_channels-1) * ts + 1)[ts < 0]
+        gt_values[ts > 0] = (1 - (num_channels - 1) * ts)[ts > 0]
+        gt_values[ts < 0] = ((num_channels - 1) * ts + 1)[ts < 0]
 
-        gt_values[ts < -1.0 / (num_channels-1)] = 0
-        gt_values[ts > 1.0 / (num_channels-1)] = 0
+        gt_values[ts < -1.0 / (num_channels - 1)] = 0
+        gt_values[ts > 1.0 / (num_channels - 1)] = 0
 
         return gt_values
 
+
 # Parsing Modules
+
 
 def load_event(event_path, cfg):
     # Returns time-shifted numpy array event from event_path
     event = np.load(event_path, allow_pickle=True)
     if getattr(cfg, 'compressed', True):
         event = event['arr_0'].item()['event_data']
-        event = np.vstack([event['x'], event['y'], event['t'], event['p'] + 2]).T
+        event = np.vstack([event['x'], event['y'], event['t'],
+                           event['p'] + 2]).T
     else:
-        event = np.vstack([event['x_pos'], event['y_pos'], event['timestamp'], event['polarity'].astype(np.uint8)]).T
+        event = np.vstack([
+            event['x_pos'], event['y_pos'], event['timestamp'],
+            event['polarity'].astype(np.uint8)
+        ]).T
 
     event = event.astype(np.float)
 
@@ -118,7 +127,7 @@ def load_event(event_path, cfg):
     # Account for zero polarity
     if event[:, 3].min() >= -0.5:
         event[:, 3][event[:, 3] <= 0.5] = -1
-    
+
     # print("Load Event:", event[:, 0].max(), event[:, 0].min(), \
     #         event[:, 1].max(), event[:, 1].min(), \
     #         event[:, 3].max(), event[:, 3].min())
@@ -142,11 +151,12 @@ def slice_event(event, cfg):
 
         if slice_augment and cfg.mode == 'train':
             slice_augment_width = getattr(cfg, 'slice_augment_width', 0)
-            length = random.randint(length - slice_augment_width, length + slice_augment_width)
+            length = random.randint(length - slice_augment_width,
+                                    length + slice_augment_width)
 
         if len(event) > length:
             start = random.choice(range(len(event) - length + 1))
-            event = event[start: start + length]
+            event = event[start:start + length]
 
     return event
 
@@ -194,7 +204,7 @@ def reshape_event_unique(event, orig_h, orig_w, new_h, new_w):
 
 def parse_event(event_path, cfg):
     event = load_event(event_path, cfg)
-    
+
     event = torch.from_numpy(event)
 
     # Account for density-based denoising
@@ -216,11 +226,14 @@ def parse_event(event_path, cfg):
         reshape_method = getattr(cfg, 'reshape_method', 'no_sample')
 
         if reshape_method == 'no_sample':
-            event = reshape_event_no_sample(event, SENSOR_H, SENSOR_W, IMAGE_H, IMAGE_W)
+            event = reshape_event_no_sample(event, SENSOR_H, SENSOR_W, IMAGE_H,
+                                            IMAGE_W)
         elif reshape_method == 'sample':
-            event = reshape_event_with_sample(event, SENSOR_H, SENSOR_W, IMAGE_H, IMAGE_W)
+            event = reshape_event_with_sample(event, SENSOR_H, SENSOR_W,
+                                              IMAGE_H, IMAGE_W)
         elif reshape_method == 'unique':
-            event = reshape_event_unique(event, SENSOR_H, SENSOR_W, IMAGE_H, IMAGE_W)
+            event = reshape_event_unique(event, SENSOR_H, SENSOR_W, IMAGE_H,
+                                         IMAGE_W)
 
     # print("after reshape x", event[:,0].max(), event[:,0].min())
     # print("after reshape y", event[:,1].max(), event[:,1].min())
@@ -230,18 +243,19 @@ def parse_event(event_path, cfg):
 
     if slice_events:
         event = slice_event(event, cfg)
-    
+
     # print("after slice x", event[:,0].max(), event[:,0].min())
     # print("after slice y", event[:,1].max(), event[:,1].min())
     # print("after slice t", event[:,3].max(), event[:,3].min())
 
     return event
 
+
 # Aggregation Modules
 
 
 # Reimplement EST
-def est_aggregation(event_tensor,  augment=None, **kwargs):
+def est_aggregation(event_tensor, augment=None, **kwargs):
     # Accumulate events to create a (2 * C) * H * W image
 
     # Augment data
@@ -251,9 +265,9 @@ def est_aggregation(event_tensor,  augment=None, **kwargs):
     # print("ini x", event_tensor[:,0].max(), event_tensor[:,0].min())
     # print("ini y", event_tensor[:,1].max(), event_tensor[:,1].min())
     # print("ini p", event_tensor[:,3].max(), event_tensor[:,3].min())
-    
+
     # print("event_tensot shape:", event_tensor.shape)
-    
+
     H = kwargs.get('height', IMAGE_H)
     W = kwargs.get('width', IMAGE_W)
     C = kwargs.get('channel_num', 9)
@@ -261,34 +275,179 @@ def est_aggregation(event_tensor,  augment=None, **kwargs):
     mlp_layers = kwargs.get('value-layer_mlp', [1, 30, 30, 1])
 
     value_layer = ValueLayer(mlp_layers,
-                            activation=nn.LeakyReLU(negative_slope=0.1),
-                            num_channels=C)
+                             activation=nn.LeakyReLU(negative_slope=0.1),
+                             num_channels=C)
 
     num_voxels = 2 * C * H * W
-    vox = event_tensor[0].new_full([num_voxels,], fill_value=0)
+    vox = event_tensor[0].new_full([
+        num_voxels,
+    ], fill_value=0)
 
     start_time = event_tensor[0, 2]
     time_length = event_tensor[-1, 2] - event_tensor[0, 2]
     # event_tensor[: 2] = (event_tensor[: 2] - start_time) / time_length
-    x = event_tensor[:,0].long()
-    y = event_tensor[:,1].long()
-    t = (event_tensor[:,2] - start_time) / time_length
-    p = event_tensor[:,3].long()
+    x = event_tensor[:, 0].long()
+    y = event_tensor[:, 1].long()
+    t = (event_tensor[:, 2] - start_time) / time_length
+    p = event_tensor[:, 3].long()
 
     idx_before_bins = x \
                     + W * y \
                     + 0 \
                     + W * H * C * (p + 1) / 2
-    
+
     for i_bin in range(C):
         values = t * value_layer.forward(t - i_bin / (C - 1))
 
         # draw in voxel grid
         idx = idx_before_bins + W * H * i_bin
         vox.put_(idx.long(), values, accumulate=True)
-    
+
     vox = vox.view(2, C, H, W)
     vox = torch.cat([vox[0, ...], vox[1, ...]], 0)
+    vox = vox.float()
+
+    return vox
+
+
+# Reimplement EST with positive polarity only
+def est_aggregation_positive(event_tensor, augment=None, **kwargs):
+    '''
+    Accumulate only positive events to create a (1 * C) * H * W image
+    Args:
+        event_tensor: (N, 4) tensor
+        augment: augmentation function
+        kwargs: other arguments
+    Returns:
+        vox: (1 * C, H, W) tensor
+    '''
+
+    # Augment data
+    if augment is not None:
+        event_tensor = augment(event_tensor)
+
+    # print("ini x", event_tensor[:,0].max(), event_tensor[:,0].min())
+    # print("ini y", event_tensor[:,1].max(), event_tensor[:,1].min())
+    # print("ini p", event_tensor[:,3].max(), event_tensor[:,3].min())
+
+    # print("event_tensot shape:", event_tensor.shape)
+
+    H = kwargs.get('height', IMAGE_H)
+    W = kwargs.get('width', IMAGE_W)
+    C = kwargs.get('channel_num', 9)
+
+    mlp_layers = kwargs.get('value-layer_mlp', [1, 30, 30, 1])
+
+    value_layer = ValueLayer(mlp_layers,
+                             activation=nn.LeakyReLU(negative_slope=0.1),
+                             num_channels=C)
+
+    # num_voxels = 2 * C * H * W # original
+    num_voxels = 1 * C * H * W  # for positive polarity only
+    vox = event_tensor[0].new_full([
+        num_voxels,
+    ], fill_value=0)
+
+    start_time = event_tensor[0, 2]
+    time_length = event_tensor[-1, 2] - event_tensor[0, 2]
+    # event_tensor[: 2] = (event_tensor[: 2] - start_time) / time_length
+    x = event_tensor[:, 0].long()
+    y = event_tensor[:, 1].long()
+    t = (event_tensor[:, 2] - start_time) / time_length
+    p = event_tensor[:, 3].long()
+
+    # Only positive polarity
+    mask = p > 0
+    x = x[mask].reshape(-1, 1)
+    y = y[mask].reshape(-1, 1)
+    t = t[mask].reshape(-1, 1)
+    p = p[mask].reshape(-1, 1)
+
+    idx_before_bins = x \
+                    + W * y \
+                    + 0 \
+                    + W * H * C * p # for positive polarity
+    # + W * H * C * (p + 1) / 2 # for both polarity
+
+    for i_bin in range(C):
+        values = t * value_layer.forward(t - i_bin / (C - 1))
+
+        # draw in voxel grid
+        idx = idx_before_bins + W * H * i_bin
+        vox.put_(idx.long(), values, accumulate=True)
+
+    vox = vox.view(1, C, H, W)
+    vox = vox[0, ...]  # for positive polarity
+    # vox = torch.cat([vox[0, ...], vox[1, ...]], 0) # for both polarity
+    vox = vox.float()
+
+    return vox
+
+
+# Reimplement EST, ignore polarity
+def est_aggregation_nop(event_tensor, augment=None, **kwargs):
+    '''
+    Accumulate events to create a (1 * C) * H * W image (ignore polarity)
+    Args:
+        event_tensor: (N, 4) tensor
+        augment: augmentation function
+        kwargs: other arguments
+    Returns:
+        vox: (1 * C, H, W) tensor
+    '''
+
+    # Augment data
+    if augment is not None:
+        event_tensor = augment(event_tensor)
+
+    # print("ini x", event_tensor[:,0].max(), event_tensor[:,0].min())
+    # print("ini y", event_tensor[:,1].max(), event_tensor[:,1].min())
+    # print("ini p", event_tensor[:,3].max(), event_tensor[:,3].min())
+
+    # print("event_tensot shape:", event_tensor.shape)
+
+    H = kwargs.get('height', IMAGE_H)
+    W = kwargs.get('width', IMAGE_W)
+    C = kwargs.get('channel_num', 9)
+
+    mlp_layers = kwargs.get('value-layer_mlp', [1, 30, 30, 1])
+
+    value_layer = ValueLayer(mlp_layers,
+                             activation=nn.LeakyReLU(negative_slope=0.1),
+                             num_channels=C)
+
+    num_voxels = 1 * C * H * W
+    vox = event_tensor[0].new_full([
+        num_voxels,
+    ], fill_value=0)
+
+    start_time = event_tensor[0, 2]
+    time_length = event_tensor[-1, 2] - event_tensor[0, 2]
+    # event_tensor[: 2] = (event_tensor[: 2] - start_time) / time_length
+    x = event_tensor[:, 0].long()
+    y = event_tensor[:, 1].long()
+    t = (event_tensor[:, 2] - start_time) / time_length
+
+    # ignore polarity
+    p[p < 0] = 1
+    p = event_tensor[:, 3].long()
+
+    idx_before_bins = x \
+                    + W * y \
+                    + 0 \
+                    + W * H * C * p   # ignore polarity
+    # + W * H * C * (p + 1) / 2 # original
+
+    for i_bin in range(C):
+        values = t * value_layer.forward(t - i_bin / (C - 1))
+
+        # draw in voxel grid
+        idx = idx_before_bins + W * H * i_bin
+        vox.put_(idx.long(), values, accumulate=True)
+
+    vox = vox.view(1, C, H, W)
+    vox = vox[0, ...]  # ignore polarity
+    # vox = torch.cat([vox[0, ...], vox[1, ...]], 0) # original
     vox = vox.float()
 
     return vox
@@ -310,11 +469,13 @@ def reshape_then_acc(event_tensor, augment=None, **kwargs):
     time_length = event_tensor[-1, 2] - event_tensor[0, 2]
 
     # Get pos, neg counts
-    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
     pos_max = pos_count.max().float()
     pos_count = pos_count / pos_max
 
-    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
     neg_max = neg_count.max().float()
     neg_count = neg_count / neg_max
 
@@ -359,9 +520,15 @@ def reshape_then_acc_time(event_tensor, augment=None, **kwargs):
     neg_out, _ = scatter_max(norm_neg_time, neg_idx, dim=-1, dim_size=H * W)
     neg_out = neg_out.reshape(H, W)
 
-    pos_min_out, _ = scatter_min(norm_pos_time, pos_idx, dim=-1, dim_size=H * W)
+    pos_min_out, _ = scatter_min(norm_pos_time,
+                                 pos_idx,
+                                 dim=-1,
+                                 dim_size=H * W)
     pos_min_out = pos_min_out.reshape(H, W)
-    neg_min_out, _ = scatter_min(norm_neg_time, neg_idx, dim=-1, dim_size=H * W)
+    neg_min_out, _ = scatter_min(norm_neg_time,
+                                 neg_idx,
+                                 dim=-1,
+                                 dim_size=H * W)
     neg_min_out = neg_min_out.reshape(H, W)
 
     result = torch.stack([pos_min_out, pos_out, neg_min_out, neg_out], dim=2)
@@ -393,9 +560,11 @@ def reshape_then_acc_count(event_tensor, augment=None, **kwargs):
     time_length = event_tensor[-1, 2] - event_tensor[0, 2]
 
     # Get pos, neg counts
-    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
 
-    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
 
     # Get pos, neg time
     norm_pos_time = (pos[:, 2] - start_time) / time_length
@@ -427,8 +596,10 @@ def reshape_then_acc_count_pol(event_tensor, augment=None, **kwargs):
     neg = event_tensor[event_tensor[:, 3] < 0]
 
     # Get pos, neg counts
-    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W, minlength=H * W).reshape(H, W)
-    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
+    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
 
     result = torch.stack([pos_count, neg_count], dim=2)
 
@@ -448,7 +619,9 @@ def reshape_then_acc_count_only(event_tensor, augment=None, **kwargs):
     W = kwargs.get('width', IMAGE_W)
 
     # Get pos, neg counts
-    event_count = torch.bincount(event_tensor[:, 0].long() + event_tensor[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    event_count = torch.bincount(event_tensor[:, 0].long() +
+                                 event_tensor[:, 1].long() * W,
+                                 minlength=H * W).reshape(H, W)
 
     result = torch.unsqueeze(event_count, -1)
 
@@ -476,9 +649,11 @@ def reshape_then_acc_all(event_tensor, augment=None, **kwargs):
     time_length = event_tensor[-1, 2] - event_tensor[0, 2]
 
     # Get pos, neg counts
-    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
 
-    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
 
     # Get pos, neg time
     norm_pos_time = (pos[:, 2] - start_time) / time_length
@@ -490,12 +665,20 @@ def reshape_then_acc_all(event_tensor, augment=None, **kwargs):
     neg_out, _ = scatter_max(norm_neg_time, neg_idx, dim=-1, dim_size=H * W)
     neg_out = neg_out.reshape(H, W)
 
-    pos_min_out, _ = scatter_min(norm_pos_time, pos_idx, dim=-1, dim_size=H * W)
+    pos_min_out, _ = scatter_min(norm_pos_time,
+                                 pos_idx,
+                                 dim=-1,
+                                 dim_size=H * W)
     pos_min_out = pos_min_out.reshape(H, W)
-    neg_min_out, _ = scatter_min(norm_neg_time, neg_idx, dim=-1, dim_size=H * W)
+    neg_min_out, _ = scatter_min(norm_neg_time,
+                                 neg_idx,
+                                 dim=-1,
+                                 dim_size=H * W)
     neg_min_out = neg_min_out.reshape(H, W)
 
-    result = torch.stack([pos_count, neg_count, pos_out, neg_out, pos_min_out, neg_min_out], dim=2)
+    result = torch.stack(
+        [pos_count, neg_count, pos_out, neg_out, pos_min_out, neg_min_out],
+        dim=2)
 
     result = result.permute(2, 0, 1)
     result = result.float()
@@ -637,19 +820,25 @@ def reshape_then_acc_sort(event_tensor, augment=None, **kwargs):
         pos_time_idx = time_idx[event_tensor[:, 3] > 0]
         neg_time_idx = time_idx[event_tensor[:, 3] < 0]
 
-        pos_mem, pos_cnt = torch.unique_consecutive(pos_time_idx, return_counts=True)
-        pos_time_idx = torch.repeat_interleave(torch.arange(pos_mem.shape[0]), pos_cnt)
+        pos_mem, pos_cnt = torch.unique_consecutive(pos_time_idx,
+                                                    return_counts=True)
+        pos_time_idx = torch.repeat_interleave(torch.arange(pos_mem.shape[0]),
+                                               pos_cnt)
 
-        neg_mem, neg_cnt = torch.unique_consecutive(neg_time_idx, return_counts=True)
-        neg_time_idx = torch.repeat_interleave(torch.arange(neg_mem.shape[0]), neg_cnt)
-        
+        neg_mem, neg_cnt = torch.unique_consecutive(neg_time_idx,
+                                                    return_counts=True)
+        neg_time_idx = torch.repeat_interleave(torch.arange(neg_mem.shape[0]),
+                                               neg_cnt)
+
         event_tensor[:, 2] = time_idx
 
     H = kwargs.get('height', IMAGE_H)
     W = kwargs.get('width', IMAGE_W)
     if kwargs['neglect_polarity']:
         # Get counts
-        count = torch.bincount(event_tensor[:, 0].long() + event_tensor[:, 1].long() * W, minlength=H * W).reshape(H, W)
+        count = torch.bincount(event_tensor[:, 0].long() +
+                               event_tensor[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
         count = count.float()
 
         if kwargs['use_image']:
@@ -657,24 +846,31 @@ def reshape_then_acc_sort(event_tensor, augment=None, **kwargs):
             coords = event_tensor[:, :2].long()
             event_image = torch.zeros([H, W])
             event_image[(coords[:, 1], coords[:, 0])] = 1.0
-            
+
             if kwargs['denoise_image']:
                 event_image = density_filter_event_image(event_image, count)
 
         # Get time
-        if kwargs['strict']:  # If strict is True, sorts once more to get a 'rigorous' sorted image
+        if kwargs[
+                'strict']:  # If strict is True, sorts once more to get a 'rigorous' sorted image
             idx = event_tensor[:, 0].long() + event_tensor[:, 1].long() * W
-            scatter_result, scatter_idx = scatter_max(event_tensor[:, 2], idx, dim=-1, dim_size=H * W)
+            scatter_result, scatter_idx = scatter_max(event_tensor[:, 2],
+                                                      idx,
+                                                      dim=-1,
+                                                      dim_size=H * W)
 
             idx_mask = torch.zeros(event_tensor.shape[0], dtype=torch.bool)
             idx_mask[scatter_idx[scatter_idx < idx.shape[0]]] = True
             event_tensor = event_tensor[idx_mask]
 
-            final_mem, final_cnt = torch.unique_consecutive(event_tensor[:, 2], return_counts=True)
+            final_mem, final_cnt = torch.unique_consecutive(event_tensor[:, 2],
+                                                            return_counts=True)
             # One is added to ensure that sorted values are greater than 1
-            final_scatter = torch.repeat_interleave(torch.arange(final_mem.shape[0]), final_cnt).float() + 1
+            final_scatter = torch.repeat_interleave(
+                torch.arange(final_mem.shape[0]), final_cnt).float() + 1
             if final_scatter.max() != final_scatter.min():
-                final_scatter = (final_scatter - final_scatter.min()) / (final_scatter.max() - final_scatter.min())
+                final_scatter = (final_scatter - final_scatter.min()) / (
+                    final_scatter.max() - final_scatter.min())
             else:
                 final_scatter.fill_(0.0)
 
@@ -686,36 +882,48 @@ def reshape_then_acc_sort(event_tensor, augment=None, **kwargs):
 
         else:
             idx = event_tensor[:, 0].long() + event_tensor[:, 1].long() * W
-            event_sort, _ = scatter_max(event_tensor[:, 2], idx, dim=-1, dim_size=H * W)
+            event_sort, _ = scatter_max(event_tensor[:, 2],
+                                        idx,
+                                        dim=-1,
+                                        dim_size=H * W)
             hot_event_sort = event_sort[event_sort > 0.0]
 
             if hot_event_sort.max() != hot_event_sort.min():
-                hot_event_sort = (hot_event_sort - hot_event_sort.min()) / (hot_event_sort.max() - hot_event_sort.min())
+                hot_event_sort = (hot_event_sort - hot_event_sort.min()) / (
+                    hot_event_sort.max() - hot_event_sort.min())
             else:
                 hot_event_sort = hot_event_sort - hot_event_sort.min()
-            
+
             event_sort = event_sort.reshape(H, W)
 
         if kwargs['denoise_sort']:
             event_sort = density_filter_event_image(event_sort, count)
-        
+
             if event_sort.max() != event_sort.min():
-                event_sort = (event_sort - event_sort.min()) / (event_sort.max() - event_sort.min())
-        
+                event_sort = (event_sort - event_sort.min()) / (
+                    event_sort.max() - event_sort.min())
+
         if kwargs['quantize_sort'] is not None:
-            if type(kwargs['quantize_sort']) == int:  # If we want single quantization
-                event_sort = torch.round(event_sort * kwargs['quantize_sort']) / kwargs['quantize_sort']
-            elif type(kwargs['quantize_sort']) == list:  # If we want multiple quantization
+            if type(kwargs['quantize_sort']
+                    ) == int:  # If we want single quantization
+                event_sort = torch.round(
+                    event_sort *
+                    kwargs['quantize_sort']) / kwargs['quantize_sort']
+            elif type(kwargs['quantize_sort']
+                      ) == list:  # If we want multiple quantization
                 event_sort_list = []
                 for quantize_size in kwargs['quantize_sort']:
-                    event_sort_list.append(torch.round(event_sort * quantize_size) / quantize_size)
+                    event_sort_list.append(
+                        torch.round(event_sort * quantize_size) /
+                        quantize_size)
                 event_sort = torch.stack(event_sort_list, dim=2)
 
         if kwargs['use_image']:
             if len(event_sort.shape) == 2:
                 result = torch.stack([event_image, event_sort], dim=2)
             else:
-                result = torch.cat([event_image.unsqueeze(-1), event_sort], dim=2)
+                result = torch.cat([event_image.unsqueeze(-1), event_sort],
+                                   dim=2)
         else:
             if len(event_sort.shape) == 2:
                 result = event_sort.unsqueeze(-1)
@@ -737,10 +945,12 @@ def reshape_then_acc_sort(event_tensor, augment=None, **kwargs):
             neg[:, -1] = 1
 
         # Get pos, neg counts
-        pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W, minlength=H * W).reshape(H, W)
+        pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W,
+                                   minlength=H * W).reshape(H, W)
         pos_count = pos_count.float()
 
-        neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W, minlength=H * W).reshape(H, W)
+        neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W,
+                                   minlength=H * W).reshape(H, W)
         neg_count = neg_count.float()
 
         if kwargs['use_image']:
@@ -754,28 +964,39 @@ def reshape_then_acc_sort(event_tensor, augment=None, **kwargs):
             neg_event_image[(neg_coords[:, 1], neg_coords[:, 0])] = 1.0
 
             if kwargs['denoise_image']:
-                pos_event_image = density_filter_event_image(pos_event_image, pos_count)
-                neg_event_image = density_filter_event_image(neg_event_image, neg_count)
+                pos_event_image = density_filter_event_image(
+                    pos_event_image, pos_count)
+                neg_event_image = density_filter_event_image(
+                    neg_event_image, neg_count)
 
         # Get pos, neg time
         if kwargs['strict']:
             # Get pos sort
             pos_idx = pos[:, 0].long() + pos[:, 1].long() * W
-            pos_scatter_result, pos_scatter_idx = scatter_max(pos[:, 2], pos_idx, dim=-1, dim_size=H * W)
+            pos_scatter_result, pos_scatter_idx = scatter_max(pos[:, 2],
+                                                              pos_idx,
+                                                              dim=-1,
+                                                              dim_size=H * W)
 
             pos_idx_mask = torch.zeros(pos.shape[0], dtype=torch.bool)
-            pos_idx_mask[pos_scatter_idx[pos_scatter_idx < pos_idx.shape[0]]] = True
+            pos_idx_mask[pos_scatter_idx[
+                pos_scatter_idx < pos_idx.shape[0]]] = True
             tmp_pos = pos[pos_idx_mask]
 
-            pos_final_mem, pos_final_cnt = torch.unique_consecutive(tmp_pos[:, 2], return_counts=True)
+            pos_final_mem, pos_final_cnt = torch.unique_consecutive(
+                tmp_pos[:, 2], return_counts=True)
             # One is added to ensure that sorted values are greater than 1
-            pos_final_scatter = torch.repeat_interleave(torch.arange(pos_final_mem.shape[0]), pos_final_cnt).float() + 1
+            pos_final_scatter = torch.repeat_interleave(
+                torch.arange(pos_final_mem.shape[0]),
+                pos_final_cnt).float() + 1
 
             if pos_final_scatter.max() != pos_final_scatter.min():
-                pos_final_scatter = (pos_final_scatter - pos_final_scatter.min()) / (pos_final_scatter.max() - pos_final_scatter.min())
+                pos_final_scatter = (
+                    pos_final_scatter - pos_final_scatter.min()) / (
+                        pos_final_scatter.max() - pos_final_scatter.min())
             else:
                 pos_final_scatter.fill_(0.0)
-            
+
             pos_sort = torch.zeros(H, W)
             pos_coords = tmp_pos[:, :2].long()
 
@@ -784,17 +1005,26 @@ def reshape_then_acc_sort(event_tensor, augment=None, **kwargs):
 
             # Get neg_sort
             neg_idx = neg[:, 0].long() + neg[:, 1].long() * W
-            neg_scatter_result, neg_scatter_idx = scatter_max(neg[:, 2], neg_idx, dim=-1, dim_size=H * W)
+            neg_scatter_result, neg_scatter_idx = scatter_max(neg[:, 2],
+                                                              neg_idx,
+                                                              dim=-1,
+                                                              dim_size=H * W)
 
             neg_idx_mask = torch.zeros(neg.shape[0], dtype=torch.bool)
-            neg_idx_mask[neg_scatter_idx[neg_scatter_idx < neg_idx.shape[0]]] = True
+            neg_idx_mask[neg_scatter_idx[
+                neg_scatter_idx < neg_idx.shape[0]]] = True
             tmp_neg = neg[neg_idx_mask]
 
-            neg_final_mem, neg_final_cnt = torch.unique_consecutive(tmp_neg[:, 2], return_counts=True)
+            neg_final_mem, neg_final_cnt = torch.unique_consecutive(
+                tmp_neg[:, 2], return_counts=True)
             # One is added to ensure that sorted values are greater than 1
-            neg_final_scatter = torch.repeat_interleave(torch.arange(neg_final_mem.shape[0]), neg_final_cnt).float() + 1
+            neg_final_scatter = torch.repeat_interleave(
+                torch.arange(neg_final_mem.shape[0]),
+                neg_final_cnt).float() + 1
             if neg_final_scatter.max() != neg_final_scatter.min():
-                neg_final_scatter = (neg_final_scatter - neg_final_scatter.min()) / (neg_final_scatter.max() - neg_final_scatter.min())
+                neg_final_scatter = (
+                    neg_final_scatter - neg_final_scatter.min()) / (
+                        neg_final_scatter.max() - neg_final_scatter.min())
             else:
                 neg_final_scatter.fill_(0.0)
 
@@ -807,57 +1037,81 @@ def reshape_then_acc_sort(event_tensor, augment=None, **kwargs):
         else:
             pos_idx = pos[:, 0].long() + pos[:, 1].long() * W
             neg_idx = neg[:, 0].long() + neg[:, 1].long() * W
-            pos_sort, _ = scatter_max(pos[:, 2], pos_idx, dim=-1, dim_size=H * W)
+            pos_sort, _ = scatter_max(pos[:, 2],
+                                      pos_idx,
+                                      dim=-1,
+                                      dim_size=H * W)
             hot_pos_sort = pos_sort[pos_sort > 0.0]
-            
+
             if hot_pos_sort.max() != hot_pos_sort.min():
-                hot_pos_sort = (hot_pos_sort - hot_pos_sort.min()) / (hot_pos_sort.max() - hot_pos_sort.min())
+                hot_pos_sort = (hot_pos_sort - hot_pos_sort.min()) / (
+                    hot_pos_sort.max() - hot_pos_sort.min())
             else:
                 hot_pos_sort = hot_pos_sort - hot_pos_sort.min()
             pos_sort = pos_sort.reshape(H, W)
 
-            neg_sort, _ = scatter_max(neg[:, 2], neg_idx, dim=-1, dim_size=H * W)
+            neg_sort, _ = scatter_max(neg[:, 2],
+                                      neg_idx,
+                                      dim=-1,
+                                      dim_size=H * W)
             hot_neg_sort = neg_sort[neg_sort > 0.0]
 
             if hot_neg_sort.max() != hot_neg_sort.min():
-                hot_neg_sort = (hot_neg_sort - hot_neg_sort.min()) / (hot_neg_sort.max() - hot_neg_sort.min())
+                hot_neg_sort = (hot_neg_sort - hot_neg_sort.min()) / (
+                    hot_neg_sort.max() - hot_neg_sort.min())
             else:
                 hot_neg_sort = hot_neg_sort - hot_neg_sort.min()
             neg_sort = neg_sort.reshape(H, W)
-        
+
         if kwargs['denoise_sort']:
             pos_sort = density_filter_event_image(pos_sort, pos_count)
             neg_sort = density_filter_event_image(neg_sort, neg_count)
 
             if pos_sort.max() != pos_sort.min():
-                pos_sort = (pos_sort - pos_sort.min()) / (pos_sort.max() - pos_sort.min())
+                pos_sort = (pos_sort - pos_sort.min()) / (pos_sort.max() -
+                                                          pos_sort.min())
             if neg_sort.max() != neg_sort.min():
-                neg_sort = (neg_sort - neg_sort.min()) / (neg_sort.max() - neg_sort.min())
+                neg_sort = (neg_sort - neg_sort.min()) / (neg_sort.max() -
+                                                          neg_sort.min())
 
         if kwargs['quantize_sort'] is not None:
-            if type(kwargs['quantize_sort']) == int:  # If we want single quantization
-                pos_sort = torch.round(pos_sort * kwargs['quantize_sort']) / kwargs['quantize_sort']
-                neg_sort = torch.round(neg_sort * kwargs['quantize_sort']) / kwargs['quantize_sort']
-            elif type(kwargs['quantize_sort']) == list:  # If we want multiple quantization
+            if type(kwargs['quantize_sort']
+                    ) == int:  # If we want single quantization
+                pos_sort = torch.round(
+                    pos_sort *
+                    kwargs['quantize_sort']) / kwargs['quantize_sort']
+                neg_sort = torch.round(
+                    neg_sort *
+                    kwargs['quantize_sort']) / kwargs['quantize_sort']
+            elif type(kwargs['quantize_sort']
+                      ) == list:  # If we want multiple quantization
                 pos_sort_list = []
                 neg_sort_list = []
                 for quantize_size in kwargs['quantize_sort']:
-                    pos_sort_list.append(torch.round(pos_sort * quantize_size) / quantize_size)
-                    neg_sort_list.append(torch.round(neg_sort * quantize_size) / quantize_size)
+                    pos_sort_list.append(
+                        torch.round(pos_sort * quantize_size) / quantize_size)
+                    neg_sort_list.append(
+                        torch.round(neg_sort * quantize_size) / quantize_size)
                 pos_sort = torch.stack(pos_sort_list, dim=2)
                 neg_sort = torch.stack(neg_sort_list, dim=2)
 
         if kwargs['use_image']:
             if len(pos_sort.shape) == 2:
-                result = torch.stack([pos_event_image, pos_sort, neg_event_image, neg_sort], dim=2)
+                result = torch.stack(
+                    [pos_event_image, pos_sort, neg_event_image, neg_sort],
+                    dim=2)
             else:
-                result = torch.cat([pos_event_image.unsqueeze(-1), pos_sort, neg_event_image.unsqueeze(-1), neg_sort], dim=2)
+                result = torch.cat([
+                    pos_event_image.unsqueeze(-1), pos_sort,
+                    neg_event_image.unsqueeze(-1), neg_sort
+                ],
+                                   dim=2)
         else:
             if len(pos_sort.shape) == 2:
                 result = torch.stack([pos_sort, neg_sort], dim=2)
             else:
                 result = torch.cat([pos_sort, neg_sort], dim=2)
-            
+
         result = result.permute(2, 0, 1)
         result = result.float()
 
@@ -878,14 +1132,17 @@ def reshape_then_acc_intensity(event_tensor, augment=None, **kwargs):
     neg = event_tensor[event_tensor[:, 3] < 0]
 
     # Get pos, neg counts
-    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
     pos_count = pos_count.float()
 
-    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
     neg_count = neg_count.float()
 
     intensity = pos_count - neg_count
-    intensity = (intensity - intensity.min()) / (intensity.max() - intensity.min())
+    intensity = (intensity - intensity.min()) / (intensity.max() -
+                                                 intensity.min())
 
     result = intensity.unsqueeze(0)
     result = result.float()
@@ -906,21 +1163,25 @@ def reshape_then_acc_adj_sort(event_tensor, augment=None, **kwargs):
     neg = event_tensor[event_tensor[:, 3] < 0]
 
     # Get pos, neg counts
-    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    pos_count = torch.bincount(pos[:, 0].long() + pos[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
     pos_count = pos_count.float()
 
-    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W, minlength=H * W).reshape(H, W)
+    neg_count = torch.bincount(neg[:, 0].long() + neg[:, 1].long() * W,
+                               minlength=H * W).reshape(H, W)
     neg_count = neg_count.float()
 
     # clip count
     pos_unique_count = torch.unique(pos_count, return_counts=True)[1]
     pos_sum_subset = torch.cumsum(pos_unique_count, dim=0)
-    pos_th_clip = pos_sum_subset[pos_sum_subset < H * W * CLIP_COUNT_RATE].shape[0]
+    pos_th_clip = pos_sum_subset[pos_sum_subset < H * W *
+                                 CLIP_COUNT_RATE].shape[0]
     pos_count[pos_count > pos_th_clip] = pos_th_clip
 
     neg_unique_count = torch.unique(neg_count, return_counts=True)[1]
     neg_sum_subset = torch.cumsum(neg_unique_count, dim=0)
-    neg_th_clip = neg_sum_subset[neg_sum_subset < H * W * CLIP_COUNT_RATE].shape[0]
+    neg_th_clip = neg_sum_subset[neg_sum_subset < H * W *
+                                 CLIP_COUNT_RATE].shape[0]
     neg_count[neg_count > neg_th_clip] = neg_th_clip
 
     start_time = event_tensor[0, 2]
@@ -933,11 +1194,17 @@ def reshape_then_acc_adj_sort(event_tensor, augment=None, **kwargs):
     pos_idx = pos[:, 0].long() + pos[:, 1].long() * W
     neg_idx = neg[:, 0].long() + neg[:, 1].long() * W
     pos_out, _ = scatter_max(norm_pos_time, pos_idx, dim=-1, dim_size=H * W)
-    pos_min_out, _ = scatter_min(norm_pos_time, pos_idx, dim=-1, dim_size=H * W)
+    pos_min_out, _ = scatter_min(norm_pos_time,
+                                 pos_idx,
+                                 dim=-1,
+                                 dim_size=H * W)
     pos_out = pos_out.reshape(H, W).float()
     pos_min_out = pos_min_out.reshape(H, W).float()
     neg_out, _ = scatter_max(norm_neg_time, neg_idx, dim=-1, dim_size=H * W)
-    neg_min_out, _ = scatter_min(norm_neg_time, neg_idx, dim=-1, dim_size=H * W)
+    neg_min_out, _ = scatter_min(norm_neg_time,
+                                 neg_idx,
+                                 dim=-1,
+                                 dim_size=H * W)
     neg_out = neg_out.reshape(H, W).float()
     neg_min_out = neg_min_out.reshape(H, W).float()
 
@@ -950,20 +1217,24 @@ def reshape_then_acc_adj_sort(event_tensor, augment=None, **kwargs):
 
     patch_size = 5
 
-    pos_neighbor_count = patch_size ** 2 * torch.nn.functional.avg_pool2d(pos_count.unsqueeze(0), patch_size, stride=1, padding=patch_size // 2)
-    neg_neighbor_count = patch_size ** 2 * torch.nn.functional.avg_pool2d(neg_count.unsqueeze(0), patch_size, stride=1, padding=patch_size // 2)
+    pos_neighbor_count = patch_size**2 * torch.nn.functional.avg_pool2d(
+        pos_count.unsqueeze(0), patch_size, stride=1, padding=patch_size // 2)
+    neg_neighbor_count = patch_size**2 * torch.nn.functional.avg_pool2d(
+        neg_count.unsqueeze(0), patch_size, stride=1, padding=patch_size // 2)
 
-    pos_disc = (torch.nn.functional.max_pool2d(pos_out.unsqueeze(0), patch_size, stride=1, padding=patch_size // 2) + 
+    pos_disc = (torch.nn.functional.max_pool2d(pos_out.unsqueeze(0), patch_size, stride=1, padding=patch_size // 2) +
         torch.nn.functional.max_pool2d(-pos_min_out.unsqueeze(0), patch_size, stride=1, padding=patch_size // 2)) / \
         (pos_neighbor_count)
-    neg_disc = (torch.nn.functional.max_pool2d(neg_out.unsqueeze(0), patch_size, stride=1, padding=patch_size // 2) + 
+    neg_disc = (torch.nn.functional.max_pool2d(neg_out.unsqueeze(0), patch_size, stride=1, padding=patch_size // 2) +
         torch.nn.functional.max_pool2d(-neg_min_out.unsqueeze(0), patch_size, stride=1, padding=patch_size // 2)) / \
         (neg_neighbor_count)
 
-    pos_out[pos_count > 0] = (pos_out[pos_count > 0] - DISC_ALPHA * pos_disc.squeeze()[pos_count > 0])
+    pos_out[pos_count > 0] = (pos_out[pos_count > 0] -
+                              DISC_ALPHA * pos_disc.squeeze()[pos_count > 0])
     pos_out[pos_out < 0] = 0
     pos_out[pos_neighbor_count.squeeze() == 1.0] = 0
-    neg_out[neg_count > 0] = (neg_out[neg_count > 0] - DISC_ALPHA * neg_disc.squeeze()[neg_count > 0])
+    neg_out[neg_count > 0] = (neg_out[neg_count > 0] -
+                              DISC_ALPHA * neg_disc.squeeze()[neg_count > 0])
     neg_out[neg_out < 0] = 0
     neg_out[neg_neighbor_count.squeeze() == 1.0] = 0
 
@@ -972,15 +1243,17 @@ def reshape_then_acc_adj_sort(event_tensor, augment=None, **kwargs):
 
     pos_val, pos_idx = torch.sort(pos_out)
     neg_val, neg_idx = torch.sort(neg_out)
-    
+
     pos_unq, pos_cnt = torch.unique_consecutive(pos_val, return_counts=True)
     neg_unq, neg_cnt = torch.unique_consecutive(neg_val, return_counts=True)
 
     pos_sort = torch.zeros_like(pos_out)
     neg_sort = torch.zeros_like(neg_out)
 
-    pos_sort[pos_idx] = torch.repeat_interleave(torch.arange(pos_unq.shape[0]), pos_cnt).float() / pos_unq.shape[0]
-    neg_sort[neg_idx] = torch.repeat_interleave(torch.arange(neg_unq.shape[0]), neg_cnt).float() / neg_unq.shape[0]
+    pos_sort[pos_idx] = torch.repeat_interleave(torch.arange(
+        pos_unq.shape[0]), pos_cnt).float() / pos_unq.shape[0]
+    neg_sort[neg_idx] = torch.repeat_interleave(torch.arange(
+        neg_unq.shape[0]), neg_cnt).float() / neg_unq.shape[0]
 
     pos_sort = pos_sort.reshape(H, W)
     neg_sort = neg_sort.reshape(H, W)
@@ -992,16 +1265,18 @@ def reshape_then_acc_adj_sort(event_tensor, augment=None, **kwargs):
 
     return result
 
+
 # Augmentation Modules
 
 
 def random_shift_events(event_tensor, max_shift=20, resolution=(224, 224)):
     H, W = resolution
-    x_shift, y_shift = np.random.randint(-max_shift, max_shift + 1, size=(2,))
+    x_shift, y_shift = np.random.randint(-max_shift, max_shift + 1, size=(2, ))
     event_tensor[:, 0] += x_shift
     event_tensor[:, 1] += y_shift
 
-    valid_events = (event_tensor[:, 0] >= 0) & (event_tensor[:, 0] < W) & (event_tensor[:, 1] >= 0) & (event_tensor[:, 1] < H)
+    valid_events = (event_tensor[:, 0] >= 0) & (event_tensor[:, 0] < W) & (
+        event_tensor[:, 1] >= 0) & (event_tensor[:, 1] < H)
     event_tensor = event_tensor[valid_events]
 
     return event_tensor
@@ -1020,7 +1295,9 @@ def random_time_flip(event_tensor, resolution=(224, 224), p=0.5):
     if np.random.random() < p:
         event_tensor = torch.flip(event_tensor, [0])
         event_tensor[:, 2] = event_tensor[0, 2] - event_tensor[:, 2]
-        event_tensor[:, 3] = - event_tensor[:, 3]  # Inversion in time means inversion in polarity
+        event_tensor[:,
+                     3] = -event_tensor[:,
+                                        3]  # Inversion in time means inversion in polarity
     return event_tensor
 
 
@@ -1028,11 +1305,13 @@ def base_augment(mode):
     assert mode in ['train', 'eval']
 
     if mode == 'train':
+
         def augment(event):
             event = random_time_flip(event, resolution=(IMAGE_H, IMAGE_W))
             event = random_flip_events_along_x(event)
             event = random_shift_events(event)
             return event
+
         return augment
 
     elif mode == 'eval':
@@ -1040,6 +1319,7 @@ def base_augment(mode):
 
 
 class ImageNetDataset(Dataset):
+
     def __init__(self, cfg, mode='train'):
         super(ImageNetDataset, self).__init__()
         self.mode = mode
@@ -1056,12 +1336,15 @@ class ImageNetDataset(Dataset):
         elif mode == 'test':
             self.map_file = self.val_file
 
-        self.labels = [s.split()[1].strip() for s in open(cfg.label_map, 'r').readlines()]
+        self.labels = [
+            s.split()[1].strip() for s in open(cfg.label_map, 'r').readlines()
+        ]
         self.labels = sorted(self.labels[:1000])
 
         if getattr(cfg, 'trim_class_count', None) is not None:
             self.labels = self.labels[:cfg.trim_class_count]
-            self.map_file = list(filter(lambda s: s.parent.stem in self.labels, self.map_file))
+            self.map_file = list(
+                filter(lambda s: s.parent.stem in self.labels, self.map_file))
 
         self.label_map = {s: idx for idx, s in enumerate(self.labels)}
 
@@ -1104,8 +1387,10 @@ class ImageNetDataset(Dataset):
             self.loader = est_aggregation
 
     def augment_parser(self, parser):
+
         def new_parser(event_path):
             return parser(event_path, self.cfg)
+
         return new_parser
 
     def __getitem__(self, idx):
@@ -1115,11 +1400,24 @@ class ImageNetDataset(Dataset):
         # Load and optionally reshape event from event_path
         event = self.event_parser(event_path)
         augment_mode = 'train' if self.mode == 'train' else 'eval'
-        event = self.loader(event, augment=base_augment(augment_mode), neglect_polarity=getattr(self.cfg, 'neglect_polarity', False),
-            global_time=getattr(self.cfg, 'global_time', True), strict=getattr(self.cfg, 'strict', False), use_image=getattr(self.cfg, 'use_image', True),
-            denoise_sort=getattr(self.cfg, 'denoise_sort', False), denoise_image=getattr(self.cfg, 'denoise_image', False),
-            filter_flash=getattr(self.cfg, 'filter_flash', False), filter_noise=getattr(self.cfg, 'filter_noise', False),
-            quantize_sort=getattr(self.cfg, 'quantize_sort', None))
+        event = self.loader(event,
+                            augment=base_augment(augment_mode),
+                            neglect_polarity=getattr(self.cfg,
+                                                     'neglect_polarity',
+                                                     False),
+                            global_time=getattr(self.cfg, 'global_time', True),
+                            strict=getattr(self.cfg, 'strict', False),
+                            use_image=getattr(self.cfg, 'use_image', True),
+                            denoise_sort=getattr(self.cfg, 'denoise_sort',
+                                                 False),
+                            denoise_image=getattr(self.cfg, 'denoise_image',
+                                                  False),
+                            filter_flash=getattr(self.cfg, 'filter_flash',
+                                                 False),
+                            filter_noise=getattr(self.cfg, 'filter_noise',
+                                                 False),
+                            quantize_sort=getattr(self.cfg, 'quantize_sort',
+                                                  None))
 
         return event, label
 
