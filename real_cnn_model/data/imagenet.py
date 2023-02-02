@@ -362,6 +362,8 @@ def est_aggregation_positive(event_tensor, augment=None, **kwargs):
     y = y[mask].reshape(-1, 1)
     t = t[mask].reshape(-1, 1)
     p = p[mask].reshape(-1, 1)
+    
+    print("p: ", p.shape, p.max(), p.min())
 
     idx_before_bins = x \
                     + W * y \
@@ -431,6 +433,9 @@ def est_aggregation_nop(event_tensor, augment=None, **kwargs):
     # ignore polarity
     p = event_tensor[:, 3].long()
     p[p < 0] = 1
+
+    print("p: ", p.max(), p.min())
+    # print(p.unique())
 
     idx_before_bins = x \
                     + W * y \
