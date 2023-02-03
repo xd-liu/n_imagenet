@@ -19,7 +19,7 @@ cd "$PATH_TO_REPOSITORY"/real_cnn_model
 # write to new file
 # SBATCH --nodes=1
 echo "#!/bin/bash
-#SBATCH --gres=gpu:p100:1
+#SBATCH --gres=gpu:p100:2
 #SBATCH --cpus-per-task=32
 #SBATCH --nodes=1
 #SBATCH --mem=127000M
