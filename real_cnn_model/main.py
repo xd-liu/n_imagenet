@@ -83,7 +83,7 @@ def main():
     print(model_container.models['model'])
 
     # wandb
-    wandb.init(project="EST_Polarity_test", cinfig=cfg_dict)
+    wandb.init(project="EST_Polarity_test_positive", cinfig=cfg_dict)
     wandb.config = cfg_dict
 
     if args.clean:
