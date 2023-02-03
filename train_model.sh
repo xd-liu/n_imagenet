@@ -21,8 +21,8 @@ cd "$PATH_TO_REPOSITORY"/real_cnn_model
 echo "#!/bin/bash
 #SBATCH --gres=gpu:p100:2
 #SBATCH --cpus-per-task=32
-#SBATCH --nodes=1
-#SBATCH --mem=254000M
+#SBATCH --nodes=2
+#SBATCH --mem=127000M
 #SBATCH --time=36:00:00
 #SBATCH --account=def-gigor
 #SBATCH --output=$LOG_FILE
