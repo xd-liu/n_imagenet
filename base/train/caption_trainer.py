@@ -113,7 +113,7 @@ class CaptionTrainer(MiniBatchTrainer):
         print_dict = {"Epoch": self.tracker.epoch,
         "training loss": avg_train_loss,
         "top 5 accuracy": avg_top_5}
-
+        # wandb.log(print_dict)
         self.print_state(print_dict)
 
     def train_batch(self, data_dict):
@@ -170,7 +170,7 @@ class CaptionTrainer(MiniBatchTrainer):
 
         avg_top_5 = self.tracker.total_top_5.get_avg()
         print_dict = {"Epoch": self.tracker.epoch, "top 5 accuracy": avg_top_5, "bleu 4": bleu4}
-        
+        # wandb.log(print_dict)
         # wandb.log({"val_acc_top5": avg_top_5})
         self.print_state(print_dict)
 

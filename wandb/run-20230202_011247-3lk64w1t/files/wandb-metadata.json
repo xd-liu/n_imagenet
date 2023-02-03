@@ -1,0 +1,22 @@
+{
+    "os": "Linux-3.10.0-1160.80.1.el7.x86_64-x86_64-with-centos-7.9.2009-Core",
+    "python": "3.7.9",
+    "heartbeatAt": "2023-02-02T06:12:49.807294",
+    "startedAt": "2023-02-02T06:12:47.432386",
+    "docker": null,
+    "cpu_count": 32,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "wandb_test.py",
+    "codePath": "wandb_test.py",
+    "git": {
+        "remote": "git@github.com:xd-liu/n_imagenet.git",
+        "commit": "029f789f6b5c29e878fc44e3ff26bb05caa6f2ec"
+    },
+    "email": null,
+    "root": "/scratch/xudong99/n_imagenet",
+    "host": "gra-login1",
+    "username": "xudong99",
+    "executable": "/home/xudong99/e2t/bin/python"
+}

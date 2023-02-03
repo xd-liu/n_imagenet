@@ -358,15 +358,16 @@ def est_aggregation_positive(event_tensor, augment=None, **kwargs):
 
     # Only positive polarity
     mask = p > 0
-    x = x[mask].reshape(-1, 1)
-    y = y[mask].reshape(-1, 1)
-    t = t[mask].reshape(-1, 1)
-    p = p[mask].reshape(-1, 1)
-
+    x = x[mask]
+    y = y[mask]
+    t = t[mask]
+    p = p[mask]
+    
+    # print("p: ", p.shape, p.max(), p.min())
     idx_before_bins = x \
                     + W * y \
                     + 0 \
-                    + W * H * C * p # for positive polarity
+                    + 0 # for positive polarity
     # + W * H * C * (p + 1) / 2 # for both polarity
 
     for i_bin in range(C):
@@ -429,18 +430,20 @@ def est_aggregation_nop(event_tensor, augment=None, **kwargs):
     t = (event_tensor[:, 2] - start_time) / time_length
 
     # ignore polarity
-    p[p < 0] = 1
+    # p[p < 0] = 1
     p = event_tensor[:, 3].long()
+    p[p<0] = 1
+    p = p
+    # print("p ", p.shape, p.min(), p.max())
 
     idx_before_bins = x \
                     + W * y \
                     + 0 \
-                    + W * H * C * p   # ignore polarity
+                    + 0   # ignore polarity
     # + W * H * C * (p + 1) / 2 # original
 
     for i_bin in range(C):
         values = t * value_layer.forward(t - i_bin / (C - 1))
-
         # draw in voxel grid
         idx = idx_before_bins + W * H * i_bin
         vox.put_(idx.long(), values, accumulate=True)

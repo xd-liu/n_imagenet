@@ -83,7 +83,7 @@ def main():
     print(model_container.models['model'])
 
     # wandb
-    # wandb.init(project="train_DiST_Caltech")
+    # wandb.init(project="EST_Polarity", cinfig=cfg_dict)
     # wandb.config = cfg_dict
 
     if args.clean:
@@ -92,7 +92,7 @@ def main():
         exit()
 
     trainer.run()
-
+    wandb.finish()
 
 if __name__ == '__main__':
     main()

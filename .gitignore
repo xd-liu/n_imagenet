@@ -1,5 +1,8 @@
 # wandb
-*/wand/*
+*/wandb/*
+
+# misc
+*core*
 
 # video/img
 *.mp4
