@@ -6,7 +6,7 @@ from real_cnn_model.models.model_container import CNNContainer
 from real_cnn_model.train.trainer import CNNTrainer
 import configparser
 from collections import namedtuple 
-# import wandb
+import wandb
 
 
 def main():
@@ -83,8 +83,8 @@ def main():
     print(model_container.models['model'])
 
     # wandb
-    # wandb.init(project="EST_Polarity", cinfig=cfg_dict)
-    # wandb.config = cfg_dict
+    wandb.init(project="EST_Polarity_test", cinfig=cfg_dict)
+    wandb.config = cfg_dict
 
     if args.clean:
         print("Cleaning experiments!")
