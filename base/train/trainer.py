@@ -73,6 +73,17 @@ class Trainer(ABC):
         """
         pass
 
+    def write_epoch(self, epochs, write_dict: dict, **kwargs):
+        """
+        Write to logger. Default behavior is write scalar. May be extended to write other modalities as well.
+
+        Args:
+            total_iter: Number of total iterations
+            write_dict: Dictionary containing data to write on tensorboard
+        """
+        for key in write_dict.keys():
+            self.writer.add_scalar(key, write_dict[key], epochs)
+
     def write(self, total_iter, write_dict: dict, **kwargs):
         """
         Write to logger. Default behavior is write scalar. May be extended to write other modalities as well.

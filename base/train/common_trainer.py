@@ -7,7 +7,7 @@ from time import time
 from base.train.mini_batch_trainer import MiniBatchTrainer
 from abc import abstractmethod
 from base.utils.tracker import MiniBatchTracker
-import wandb
+# import wandb
 
 
 class CommonTrainer(MiniBatchTrainer):
@@ -29,7 +29,7 @@ class CommonTrainer(MiniBatchTrainer):
         self.exp_save_dir = pathlib.Path(self.cfg.save_root_dir) / config_name
         self.writer = SummaryWriter(
             pathlib.Path(self.exp_save_dir) /
-            f'{config_name}_{self.cfg.mode}_{time_stamp}')
+            f'{config_name}_{self.cfg.mode}_epoch_{time_stamp}')
         self.devices = [
             torch.device(f"cuda:{i}") for i in range(torch.cuda.device_count())
         ]
@@ -111,13 +111,11 @@ class CommonTrainer(MiniBatchTrainer):
                 f"Epoch {self.tracker.epoch} training loss = {self.tracker.total_train_loss.get_avg():.4f}"
             )
 
-        # wandb train epoch log
-        wandb_dict = {
-            'type': 'train_epoch',
-            'epoch': self.tracker.epoch,
-            'loss': self.tracker.total_train_loss.get_avg()
+        # tensorboard train epoch log
+        tb_dict = {
+            'trian_loss_epoch': self.tracker.total_train_loss.get_avg()
         }
-        wandb.log(wandb_dict)
+        self.write_epoch(self.tracker.epoch, tb_dict)
 
         # Validate
         print(f"Epoch {self.tracker.epoch} validation!")
@@ -128,12 +126,18 @@ class CommonTrainer(MiniBatchTrainer):
             f"Total validation accuracy = {(self.tracker.get_val_acc()):.4f}")
 
         # wandb val epoch log
-        wandb_dict = {
-            'type': 'val_epoch',
-            'epoch': self.tracker.epoch,
-            'acc': self.tracker.get_val_acc()
+        # wandb_dict = {
+        #     'type': 'val_epoch',
+        #     'epoch': self.tracker.epoch,
+        #     'acc': self.tracker.get_val_acc()
+        # }
+        # wandb.log(wandb_dict)
+
+        # tensorboard val epoch log
+        tb_dict = {
+            'val_acc_epoch': self.tracker.get_val_acc(),
         }
-        wandb.log(wandb_dict)
+        self.write_epoch(self.tracker.epoch, tb_dict)
 
         # Update scheduler
         self.scheduler.step(self.tracker.get_val_acc())
@@ -231,16 +235,16 @@ class CommonTrainer(MiniBatchTrainer):
         }
 
         # wandb log train batch information
-        wandb_dict = {
-            'type': "train_batch",
-            'Iter': self.tracker.batch_idx,
-            'training loss': loss,
-            'top 1 training acc': acc_1,
-            'top 5 training acc': acc_5,
-            'infer time': self.tracker.infer_time,
-            'load time': self.tracker.load_time
-        }
-        wandb.log(wandb_dict)
+        # wandb_dict = {
+        #     'type': "train_batch",
+        #     'Iter': self.tracker.batch_idx,
+        #     'training loss': loss,
+        #     'top 1 training acc': acc_1,
+        #     'top 5 training acc': acc_5,
+        #     'infer time': self.tracker.infer_time,
+        #     'load time': self.tracker.load_time
+        # }
+        # wandb.log(wandb_dict)
 
         self.print_state(print_dict)
         self.write(self.tracker.total_iter, write_dict)
