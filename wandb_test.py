@@ -1,4 +1,4 @@
-import wandb
+# import wandb
 import random
 
 # start a new wandb run to track this script
