@@ -433,7 +433,7 @@ def est_aggregation_nop(event_tensor, augment=None, **kwargs):
     p = event_tensor[:, 3].long()
     p[p < 0] = 1
 
-    print("p: ", p.max(), p.min())
+    # print("p: ", p.max(), p.min())
     # print(p.unique())
 
     idx_before_bins = x \
