@@ -21,10 +21,8 @@ class CommonTrainer(MiniBatchTrainer):
         """
         assert self.cfg.mode in ['train', 'test']
         time_stamp = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-        config_name = self.cfg.name.replace('/', '@').replace(
-            '=', '-').replace(
-                ',',
-                '&')  # Accout for cases where '/, =, \,' is inside config name
+        config_name = self.cfg.name.replace('/', '@').replace('=', '-').replace(
+            ',', '&')  # Accout for cases where '/, =, \,' is inside config name
         config_name = config_name[:200]  # Account for file names too long
         self.exp_save_dir = pathlib.Path(self.cfg.save_root_dir) / config_name
         self.writer = SummaryWriter(
@@ -67,10 +65,13 @@ class CommonTrainer(MiniBatchTrainer):
         """
         Initialize self.scheduler using self.cfg.
         """
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,
-                                                              'max',
-                                                              verbose=True,
-                                                              patience=3)
+        # self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer,
+        #                                                       'max',
+        #                                                       verbose=True,
+        #                                                       patience=3)
+        # use cosin annealing
+        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
+            self.optimizer, T_max=self.cfg.epochs)
 
     def run(self):
         if self.cfg.mode == 'train':
@@ -112,9 +113,7 @@ class CommonTrainer(MiniBatchTrainer):
             )
 
         # tensorboard train epoch log
-        tb_dict = {
-            'trian_loss_epoch': self.tracker.total_train_loss.get_avg()
-        }
+        tb_dict = {'trian_loss_epoch': self.tracker.total_train_loss.get_avg()}
         self.write_epoch(self.tracker.epoch, tb_dict)
 
         # Validate
@@ -122,8 +121,7 @@ class CommonTrainer(MiniBatchTrainer):
 
         self.tracker.init_epoch(mode='val')
         self.validate_epoch()
-        print(
-            f"Total validation accuracy = {(self.tracker.get_val_acc()):.4f}")
+        print(f"Total validation accuracy = {(self.tracker.get_val_acc()):.4f}")
 
         # wandb val epoch log
         # wandb_dict = {
@@ -140,7 +138,8 @@ class CommonTrainer(MiniBatchTrainer):
         self.write_epoch(self.tracker.epoch, tb_dict)
 
         # Update scheduler
-        self.scheduler.step(self.tracker.get_val_acc())
+        # self.scheduler.step(self.tracker.get_val_acc())
+        self.scheduler.step()
 
         # Save model by epoch (depends on cfg)
         if self.cfg.save_by == 'epoch':
