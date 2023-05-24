@@ -1,4 +1,5 @@
 from torchvision.models import resnet18, resnet34, resnet50, resnet101, resnet152, squeezenet1_1
+from torchvision.models import vit_b_16, vit_l_16
 import torch.nn as nn
 import torch
 from base.models.model_container import ModelContainer
@@ -31,6 +32,10 @@ class CNNContainer(ModelContainer):
             model = resnet152(pretrained=use_pretrained, num_classes=pretrained_num_classes)
         elif self.cfg.model == 'SqueezeNet1_1':
             model = squeezenet1_1(pretrained=use_pretrained, num_classes=pretrained_num_classes)
+        elif self.cfg.model == 'ViT-B_16':
+            model = vit_b_16(weights='IMAGENET1K_V1', num_classes=pretrained_num_classes)
+        elif self.cfg.model == 'ViT-L_16':
+            model = vit_l_16(weights='IMAGENET1K_V1', num_classes=pretrained_num_classes)
         else:
             raise AttributeError('Invalid model name')
 
@@ -45,16 +50,28 @@ class CNNContainer(ModelContainer):
             model.conv1 = nn.Conv2d(channels, 64, kernel_size=kernel_size, stride=2, padding=3, bias=False)
         elif 'SqueezeNet1_1' == self.cfg.model:
             model.features[0] = nn.Conv2d(4, 64, kernel_size=7, stride=2)
+        elif 'ViT' in self.cfg.model:
+            conv1 = model.conv_proj
+            model.conv_proj = nn.Conv2d(channels, conv1.out_channels, kernel_size=conv1.kernel_size, stride=conv1.stride)
 
         freeze_weights = getattr(self.cfg, 'freeze', False)
         
         if freeze_weights:
-            for param in model.parameters():
-                param.requires_grad = False
-            for param in model.conv1.parameters():
-                param.requires_grad = True
-            for param in model.layer1.parameters():
-                param.requires_grad = True
+            if 'ViT' in self.cfg.model:
+                # TODO the logic is different from the resnet version, fix it
+                for param in model.parameters():
+                    param.requires_grad = False
+                for param in model.conv_proj.parameters():
+                    param.requires_grad = True
+                for param in model.heads.parameters():
+                    param.requires_grad = True
+            else:
+                for param in model.parameters():
+                    param.requires_grad = False
+                for param in model.conv1.parameters():
+                    param.requires_grad = True
+                for param in model.layer1.parameters():
+                    param.requires_grad = True
 
         train_classifier = getattr(self.cfg, 'train_classifier', False)
 

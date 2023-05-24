@@ -8,7 +8,7 @@ import random
 def main():
     root_dir = "/home/xudong99/scratch/cy6cvx3ryv-1/Caltech101-NIN"
     cls_dirs = os.listdir(root_dir)
-    for num_samples in [3, 5, 10, 20]:
+    for num_samples in [1, 3, 5, 10, 20]:
         sample_list = []
         for cls_dir in cls_dirs:
             if "txt" in cls_dir:
